@@ -31,6 +31,15 @@ The web app processes the selected file locally with browser APIs. The source me
 
 For the same algorithm version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. The source file still affects the final source-relative gain plan.
 
+## Install on a phone
+
+Driftbed is a Progressive Web App and can be installed without an app store.
+
+- **iPhone or iPad:** Open [driftbed.github.io](https://driftbed.github.io) in Safari, tap **Share**, choose **Add to Home Screen**, turn on **Open as Web App**, then tap **Add**.
+- **Android:** Open the site in a supported browser such as Chrome. Use the in-page **Install app** button when it appears, or choose **Install app** / **Add to Home screen** from the browser menu.
+
+The service worker caches the application shell so the installed interface can relaunch during a temporary network outage. It does not cache user-selected media or generated output files.
+
 ## Run locally
 
 Requirements: Node.js 20 or newer. No package installation is required.
@@ -61,6 +70,7 @@ The result is a changing ambient bed that remains controlled, reproducible, and 
 ## Repository layout
 
 - `index.html` and `styles.css` — hosted browser interface
+- `manifest.webmanifest`, `sw.js`, and `icons/` — install metadata, offline app shell, and mobile icons
 - `src/` — deterministic synthesis, loudness planning, audio decoding, WAV encoding, and video export
 - `tests/` — Node.js tests for determinism, composition, smoothness, loudness, and encoding
 - `docs/` — architecture and algorithm mapping

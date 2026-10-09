@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.0 — installable PWA
+
+- Added a web app manifest, install metadata, and app icons for mobile home-screen installation.
+- Added an Android/Chromium install prompt when the browser makes it available.
+- Added iPhone/iPad Safari installation guidance.
+- Added a versioned service-worker app shell for faster and offline relaunch of the interface.
+
 ## v1.3.0 — synthesis algorithm v3
 
 - Added deterministic additive spectral field.

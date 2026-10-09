@@ -4,6 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Driftbed — Ambient Beds for Audio &amp; Video</title>
+  <meta name="description" content="Create natural, loop-free ambient beds for audio and video in your browser." />
+  <meta name="theme-color" content="#0b0d10" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Driftbed" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -13,6 +22,15 @@
       <h1>Driftbed</h1>
       <p class="lede">Add natural, loop-free ambient background to audio or video. Driftbed runs locally in your browser, keeps the source file private, and lets you reproduce the same evolving sound bed whenever you reuse the recipe.</p>
     </header>
+
+    <section class="install card">
+      <div>
+        <strong>Install Driftbed</strong>
+        <p>Keep Driftbed on your phone for quick, app-like access. Your source media still stays in your browser.</p>
+      </div>
+      <button id="installBtn" class="secondary" type="button" hidden>Install app</button>
+      <p class="install-guide"><strong>iPhone or iPad:</strong> Open this page in Safari, tap Share, choose <em>Add to Home Screen</em>, turn on <em>Open as Web App</em>, then tap Add. <strong>Android:</strong> use <em>Install app</em> or <em>Add to Home screen</em> from your browser menu.</p>
+    </section>
 
     <section class="card">
       <input id="file" type="file" accept="audio/*,video/*" hidden />

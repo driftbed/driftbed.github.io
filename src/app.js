@@ -11,7 +11,7 @@ const els = {
   strengthPreset: $('#strengthPreset'), strength: $('#strength'), strengthDb: $('#strengthDb'), strengthInfo: $('#strengthInfo'),
   variation: $('#variation'), scenePace: $('#scenePace'), paceInfo: $('#paceInfo'), spectralDetail: $('#spectralDetail'), spectralInfo: $('#spectralInfo'), seed: $('#seed'), randomize: $('#randomize'), generate: $('#generate'), status: $('#status'), metrics: $('#metrics'), progress: $('#progress'),
   original: $('#originalPlayer'), result: $('#resultPlayer'), noise: $('#noisePlayer'),
-  download: $('#downloadBtn'), downloadNoise: $('#downloadNoiseBtn'), recipe: $('#recipeBtn'), advanced: $('#advancedInfo')
+  download: $('#downloadBtn'), downloadNoise: $('#downloadNoiseBtn'), recipe: $('#recipeBtn'), advanced: $('#advancedInfo'), install: $('#installBtn')
 };
 
 for (const p of Object.values(PROFILES)) {
@@ -41,6 +41,37 @@ function fmt(x, n=1) { return Number.isFinite(x) ? x.toFixed(n) : '—'; }
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 function rememberUrl(blob) { const url = URL.createObjectURL(blob); objectUrls.push(url); return url; }
 function clearGeneratedUrls() { for (const u of objectUrls) URL.revokeObjectURL(u); objectUrls = []; }
+
+let deferredInstallPrompt = null;
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Driftbed offline shell unavailable', error));
+}
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  if (!standalone()) els.install.hidden = false;
+});
+
+els.install.onclick = async () => {
+  if (!deferredInstallPrompt) return;
+  const promptEvent = deferredInstallPrompt;
+  deferredInstallPrompt = null;
+  els.install.hidden = true;
+  await promptEvent.prompt();
+  const choice = await promptEvent.userChoice;
+  setStatus(choice.outcome === 'accepted' ? 'Driftbed was added to your apps.' : 'Installation was dismissed. You can use your browser menu whenever you are ready.');
+};
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  els.install.hidden = true;
+  setStatus('Driftbed was added to your apps.');
+});
+
+if (standalone()) els.install.hidden = true;
 
 function updateSpectralInfo() {
   const components = buildSpectralField({

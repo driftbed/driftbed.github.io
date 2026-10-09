@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = normalize(join(fileURLToPath(new URL('.', import.meta.url)), '..'));
-const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.md':'text/markdown; charset=utf-8','.wav':'audio/wav'};
+const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.webmanifest':'application/manifest+json','.md':'text/markdown; charset=utf-8','.png':'image/png','.wav':'audio/wav'};
 const server = http.createServer(async (req,res)=>{
   try {
     const url = new URL(req.url, 'http://localhost');
