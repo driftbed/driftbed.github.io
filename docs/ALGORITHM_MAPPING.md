@@ -1,6 +1,6 @@
-# Mapping the Generalized Deterministic Dataset Algorithm to Audio v3
+# Mapping the Generalized Deterministic Dataset Algorithm to Audio v4
 
-Version 3 treats both **time** and **frequency** as deterministic synthetic datasets.
+Version 4 treats both **time** and **frequency** as deterministic synthetic datasets and adds a separate source-spectrum-following stochastic layer for offline audio. The existing environmental synthesizer remains version 3.
 
 ## 1. Timeline objects
 
@@ -157,6 +157,20 @@ Version 3 deliberately changes PCM by adding the deterministic spectral field.
 
 The established version-2 environmental base layers keep their version-2 seed namespaces. This avoids unnecessarily randomizing the already-calibrated v2 timeline/stochastic/modal behavior; v3 adds new domain-separated spectral namespaces on top.
 
-The complete v3 identity is:
+The complete v3 environmental identity is:
 
 `algorithmVersion + seed + duration + sampleRate + profile + variation + scenePace + spectralDetail`
+
+## 13. Source-spectrum-following stochastic layer
+
+The audio output recipe adds a second source-dependent dataset without changing the v3 environment data:
+
+`sourceBand(b) = F(sourcePCM, sourceSpectrumNoiseVersion, sampleRate, b)`
+
+Sixteen logarithmic bands estimate smoothed power and left/right cross-power. Each band modulates independently seeded, band-limited carriers. Neighboring log-power values are blended at control rate so isolated harmonics do not become narrow, unstable noise stripes. A soft broadband activity gate lets the layer follow pauses without hard clicks.
+
+The raw source-following layer is normalized and combined with the normalized environmental layer by power share before source-relative gain planning:
+
+`rawNoise = sqrt(1 - q) × environment + sqrt(q) × sourceSpectrum`
+
+with `q = 0.35` in the current recipe. The v4 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 1`, and `algorithmVersion = 4` so the stable environmental contract and the new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.

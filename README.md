@@ -15,6 +15,7 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Lets you control relative level, pattern variety, scene pace, and spectral detail.
 - Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
 - Exports a separately previewable/downloadable noise-only track.
+- For audio, adds a deterministic source-spectrum-following stochastic layer so the added texture follows the source's broad spectral energy instead of behaving like static broadband hiss.
 
 ## Privacy
 
@@ -29,7 +30,7 @@ The web app processes the selected file locally with browser APIs. The source me
 5. Select **Generate outputs**.
 6. Preview or download the merged media and the noise-only track.
 
-For the same algorithm version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. The source file still affects the final source-relative gain plan.
+For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version and source-spectrum follower version separately. The source file still affects the follower output and final source-relative gain plan.
 
 ## Install on a phone
 
@@ -60,12 +61,13 @@ The video path uses `HTMLVideoElement.captureStream()` and `MediaRecorder`, so c
 
 ## How it works
 
-The synthesis engine combines two deterministic layers:
+The synthesis engine combines deterministic layers:
 
 1. A timeline of weighted acoustic regimes, smoothly crossfaded over the media duration.
 2. An independently seeded spectral field whose components have their own frequency, magnitude, phase, stereo offset, and slow drift.
+3. For offline audio, a source-spectrum-following stochastic layer: a logarithmic filterbank estimates smoothed source-band power, then independently seeded filtered carriers are shaped by those envelopes. A soft source-activity gate lets the layer decay through digital silence, and stereo carrier mixing follows the source's approximate band correlation.
 
-The result is a changing ambient bed that remains controlled, reproducible, and suitable for mixing beneath speech, music, video, or other foreground media.
+The environmental synthesizer remains algorithm v3, preserving its golden PCM contract. Audio output recipe v4 combines normalized environmental and source-spectrum layers by an explicit power share before the existing source-relative gain plan. The result remains controlled and reproducible beneath speech, music, video, or other foreground media. The current realtime video path uses the validated environment-only path until the same follower is integrated and tested there.
 
 ## Repository layout
 

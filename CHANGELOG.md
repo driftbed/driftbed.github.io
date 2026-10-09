@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.0 — source-spectrum-following audio noise
+
+- Added a deterministic `SourceSpectrumNoiseFollower` filterbank that follows source spectral energy with smoothed power envelopes, source-activity gating, carrier normalization, and stereo covariance.
+- Combined environmental and source-spectrum noise by explicit power share before the existing relative-level and peak-safe gain plan.
+- Versioned output recipes separately from the preserved v3 environmental synthesizer and added deterministic DSP/golden-fixture tests.
+- Refreshed the service-worker shell cache and documented that the new follower currently applies to offline audio generation; the realtime video path remains on the validated environment-only path.
+
 ## v1.4.0 — installable PWA
 
 - Added a web app manifest, install metadata, and app icons for mobile home-screen installation.

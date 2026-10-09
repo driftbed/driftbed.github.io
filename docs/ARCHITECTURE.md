@@ -1,10 +1,14 @@
-# Architecture — synthesis algorithm v3
+# Architecture — output recipe v4
 
 ## Deterministic identity
 
-`algorithmVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail` defines the raw synthetic background. Source analysis plus `relativeNoiseDb` deterministically defines its gain for the merged audio path.
+The v4 audio output identity is:
 
-Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces.
+`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
+
+The environment synthesizer remains algorithm v3. Source analysis drives the v1 source-spectrum follower and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
+
+Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 4 adds the separate audio-only source-spectrum layer without modifying `EnvironmentalNoiseSynth`.
 
 ## Timeline dataset
 
@@ -71,6 +75,18 @@ Pattern variety is expressed primarily through spectral and structural changes. 
 
 The validation suite checks both meaningful temporal spectral movement and bounded multi-second loudness variation.
 
+## Source-spectrum-following audio layer
+
+The follower is a separate streaming filterbank. Sixteen logarithmically spaced second-order band-pass filters cover approximately 40 Hz through 0.45 Nyquist. Each band analyzes source power with attack/release envelopes, applies a small log-frequency smoothing kernel at a 32-sample control rate, and modulates a separately seeded carrier passed through a matching synthesis filter. Carrier RMS is normalized from deterministic impulse-response energy so band levels are comparable.
+
+Source activity is measured from the current input block and drives a soft gate. This prevents stale envelope state from producing a strong tail during digital silence while preserving smooth transitions. For stereo input, per-band cross-power estimates control a correlated pair of carriers; mono input is copied to both output channels.
+
+The raw layers are normalized independently and combined before noise gain planning:
+
+`rawNoise = sqrt(1 - q) × normalized(environment) + sqrt(q) × normalized(sourceSpectrum)`
+
+where `q = 0.35` in the current recipe. The existing relative-noise and peak-safe master-gain stages then operate on this total noise layer. The exact post-gain contribution is still emitted as the noise-only output.
+
 ## Continuous loudness control
 
 The UI exposes a source-relative dB offset from -60 dB to -3 dB, in 0.5 dB steps, plus quick presets. The gain planner estimates robust source program level and raw generated-noise level, then computes the gain needed to reach the requested offset.
@@ -89,7 +105,7 @@ The noise-only WAV is therefore the exact isolated synthetic contribution used b
 
 ## Video path and dual output
 
-The browser-native path uses `captureStream()`, Web Audio, and `MediaRecorder`. It simultaneously records:
+The browser-native path uses `captureStream()`, Web Audio, and `MediaRecorder`. It currently uses the environment synthesizer only; the source-spectrum follower is not claimed for video until its realtime AudioWorklet/capture integration has its own equivalence and performance evidence. The path simultaneously records:
 
 1. original video plus mixed source/noise audio; and
 2. the same post-gain noise bus as separate audio-only WebM/Opus.
