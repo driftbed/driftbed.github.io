@@ -1,5 +1,5 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { ALGORITHM_VERSION, renderNoise, buildSceneTimeline, summarizeSceneTimeline, buildSpectralField } from './synth.js';
+import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, summarizeSceneTimeline } from './synth.js';
 import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm } from './loudness.js';
 import { encodeWav16 } from './wav.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
@@ -32,15 +32,33 @@ els.seed.value = `environment-${crypto.getRandomValues(new Uint32Array(1))[0]}`;
 let selectedFile = null;
 let lastMergedBlob = null, lastMergedName = null;
 let lastNoiseBlob = null, lastNoiseName = null;
-let objectUrls = [];
+const objectUrls = new Set();
+const playerUrls = new Map();
 
 function isVideo(file) { return file?.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(file?.name || ''); }
 function setStatus(text, error=false) { els.status.textContent = text; els.status.className = error ? 'status error' : 'status'; }
 function setProgress(v) { els.progress.value = Math.max(0, Math.min(1, v)); }
 function fmt(x, n=1) { return Number.isFinite(x) ? x.toFixed(n) : '—'; }
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
-function rememberUrl(blob) { const url = URL.createObjectURL(blob); objectUrls.push(url); return url; }
-function clearGeneratedUrls() { for (const u of objectUrls) URL.revokeObjectURL(u); objectUrls = []; }
+function releasePlayerUrl(key) {
+  const oldUrl = playerUrls.get(key);
+  if (!oldUrl) return;
+  URL.revokeObjectURL(oldUrl);
+  objectUrls.delete(oldUrl);
+  playerUrls.delete(key);
+}
+function rememberUrl(blob, key) {
+  if (key) releasePlayerUrl(key);
+  const url = URL.createObjectURL(blob);
+  objectUrls.add(url);
+  if (key) playerUrls.set(key, url);
+  return url;
+}
+function clearGeneratedUrls() {
+  for (const u of objectUrls) URL.revokeObjectURL(u);
+  objectUrls.clear();
+  playerUrls.clear();
+}
 
 let deferredInstallPrompt = null;
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -119,7 +137,7 @@ function replacePlayer(key, tagName, blob) {
   const id = old.id;
   old.outerHTML = `<${tagName} id="${id}" controls class="player"></${tagName}>`;
   els[key] = document.getElementById(id);
-  els[key].src = rememberUrl(blob);
+  els[key].src = rememberUrl(blob, key);
   els[key].hidden = false;
 }
 
@@ -130,7 +148,7 @@ function chooseFile(file) {
   els.fileName.textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MB` : 'No file selected';
   els.generate.disabled = !file;
   if (file) {
-    const url = rememberUrl(file);
+    const url = rememberUrl(file, 'original');
     const tag = isVideo(file) ? 'video' : 'audio';
     els.original.outerHTML = `<${tag} id="originalPlayer" controls class="player" src="${url}"></${tag}>`;
     els.original = $('#originalPlayer');
@@ -203,10 +221,11 @@ els.generate.onclick = async () => {
       const source = await decodeFileToPcm(selectedFile);
       const sourceAnalysis = analyzePcm(source.channels, source.sampleRate);
       setStatus('Synthesizing deterministic environment…'); setProgress(0.25);
-      const scenePlan = buildSceneTimeline({ seed, durationSeconds: source.duration, profile, variation, scenePace });
-      const rawNoise = renderNoise({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
+      const synth = new EnvironmentalNoiseSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
+      const rawNoise = synth.render(Math.round(source.duration * source.sampleRate));
+      const scenePlan = synth.scenePlan;
       const noiseAnalysis = analyzePcm(rawNoise, source.sampleRate);
-      const spectralCount = buildSpectralField({ seed, profile, spectralDetail, variation }).length;
+      const spectralCount = synth.spectralComponents.length;
       setStatus('Planning level and creating merged + noise-only outputs…'); setProgress(0.72);
       const plan = planNoiseGain(sourceAnalysis, noiseAnalysis, relativeDb, -1);
       const mixed = mixPcm(source.channels, rawNoise, plan.noiseGainDb, plan.masterGainDb);

@@ -2,7 +2,7 @@ export async function decodeFileToPcm(file) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   try {
     const buffer = await file.arrayBuffer();
-    const audio = await ctx.decodeAudioData(buffer.slice(0));
+    const audio = await ctx.decodeAudioData(buffer);
     const channels = [];
     for (let c = 0; c < audio.numberOfChannels; c++) channels.push(new Float32Array(audio.getChannelData(c)));
     return { channels, sampleRate: audio.sampleRate, duration: audio.duration };

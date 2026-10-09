@@ -7,28 +7,30 @@ export function analyzePcm(channels, sampleRate) {
   const n = channels[0].length;
   let sumSq = 0;
   let peak = 0;
+  const win = Math.max(1, Math.round(sampleRate * 0.4));
+  const levels = [];
+  let windowSumSq = 0;
+  let windowCount = 0;
   for (let i = 0; i < n; i++) {
     let frameSq = 0;
     for (const ch of channels) {
       const x = ch[i] || 0;
-      frameSq += x * x;
+      const square = x * x;
+      frameSq += square;
+      windowSumSq += square;
       peak = Math.max(peak, Math.abs(x));
+      windowCount++;
     }
     sumSq += frameSq / channels.length;
+    if ((i + 1) % win === 0 || i === n - 1) {
+      levels.push(db(Math.sqrt(windowSumSq / Math.max(1, windowCount))));
+      windowSumSq = 0;
+      windowCount = 0;
+    }
   }
   const rms = Math.sqrt(sumSq / n);
 
   // Robust program-level estimate: 400 ms RMS windows, discard windows >18 dB below the 80th percentile.
-  const win = Math.max(1, Math.round(sampleRate * 0.4));
-  const levels = [];
-  for (let start = 0; start < n; start += win) {
-    const end = Math.min(n, start + win);
-    let ss = 0, count = 0;
-    for (let i = start; i < end; i++) {
-      for (const ch of channels) { const x = ch[i] || 0; ss += x * x; count++; }
-    }
-    levels.push(db(Math.sqrt(ss / Math.max(1, count))));
-  }
   const sorted = levels.filter(Number.isFinite).sort((a,b)=>a-b);
   const p80 = sorted.length ? sorted[Math.floor((sorted.length - 1) * 0.8)] : -Infinity;
   const gate = p80 - 18;

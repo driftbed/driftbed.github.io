@@ -40,19 +40,18 @@ self.addEventListener('fetch', event => {
   if (requestUrl.origin !== self.location.origin) return;
 
   event.respondWith((async () => {
-    const cached = await caches.match(event.request);
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request);
     if (cached && event.request.mode !== 'navigate') return cached;
 
     try {
       const response = await fetch(event.request);
       if (response.ok) {
-        const copy = response.clone();
-        const cache = await caches.open(CACHE_NAME);
-        await cache.put(event.request, copy);
+        event.waitUntil(cache.put(event.request, response.clone()).catch(() => {}));
       }
       return response;
     } catch {
-      return cached || caches.match('/index.html');
+      return cached || cache.match('/index.html');
     }
   })());
 });
