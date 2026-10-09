@@ -1,9 +1,12 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
 import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from './synth.js';
-import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm } from './loudness.js';
+import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm, combineNoiseLayers } from './loudness.js';
 import { encodeWav16 } from './wav.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
 import { exportVideoRealtime } from './video-export.js';
+import { DEFAULT_SOURCE_SPECTRUM_CONFIG, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE, SOURCE_SPECTRUM_NOISE_VERSION, SourceSpectrumNoiseFollower } from './source-spectrum-noise.js';
+
+const OUTPUT_RECIPE_VERSION = 4;
 
 const $ = s => document.querySelector(s);
 const els = {
@@ -178,13 +181,23 @@ updateSpectralInfo();
 
 els.recipe.onclick = async () => {
   const recipe = {
-    algorithmVersion: ALGORITHM_VERSION,
+    algorithmVersion: OUTPUT_RECIPE_VERSION,
+    environmentSynthVersion: ALGORITHM_VERSION,
+    sourceSpectrumNoiseVersion: SOURCE_SPECTRUM_NOISE_VERSION,
     seed: els.seed.value,
     environment: els.profile.value,
     relativeNoiseDb: Number(els.strength.value),
     variation: Number(els.variation.value),
     scenePace: Number(els.scenePace.value),
     spectralDetail: Number(els.spectralDetail.value),
+    sourceSpectrumNoise: {
+      enabled: true,
+      powerShare: DEFAULT_SOURCE_SPECTRUM_POWER_SHARE,
+      bands: DEFAULT_SOURCE_SPECTRUM_CONFIG.bandCount,
+      attackMs: DEFAULT_SOURCE_SPECTRUM_CONFIG.attackSeconds * 1000,
+      releaseMs: DEFAULT_SOURCE_SPECTRUM_CONFIG.releaseSeconds * 1000,
+      spectralSmoothing: DEFAULT_SOURCE_SPECTRUM_CONFIG.spectralSmoothing
+    },
     outputs: ['merged-media', 'noise-only-audio'],
     note: 'Same recipe + same source PCM + same implementation version reproduces the same synthesized noise. Audio noise-only WAV is the exact post-plan noise contribution used in the merged output.'
   };
@@ -220,9 +233,21 @@ els.generate.onclick = async () => {
       setStatus('Decoding and analyzing source…'); setProgress(0.08);
       const source = await decodeFileToPcm(selectedFile);
       const sourceAnalysis = analyzePcm(source.channels, source.sampleRate);
-      setStatus('Synthesizing deterministic environment…'); setProgress(0.25);
+      setStatus('Synthesizing deterministic environment and source-shaped noise…'); setProgress(0.25);
       const synth = new EnvironmentalNoiseSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
-      const rawNoise = synth.render(Math.round(source.duration * source.sampleRate));
+      const frames = Math.round(source.duration * source.sampleRate);
+      const rawEnvironmental = synth.render(frames);
+      const sourceSpectrumNoise = [new Float32Array(frames), new Float32Array(frames)];
+      const follower = new SourceSpectrumNoiseFollower({
+        sampleRate: source.sampleRate,
+        seed,
+        bandCount: DEFAULT_SOURCE_SPECTRUM_CONFIG.bandCount,
+        attackSeconds: DEFAULT_SOURCE_SPECTRUM_CONFIG.attackSeconds,
+        releaseSeconds: DEFAULT_SOURCE_SPECTRUM_CONFIG.releaseSeconds,
+        spectralSmoothing: DEFAULT_SOURCE_SPECTRUM_CONFIG.spectralSmoothing
+      });
+      follower.processBlock(source.channels[0], source.channels[1] || null, sourceSpectrumNoise[0], sourceSpectrumNoise[1], frames);
+      const rawNoise = combineNoiseLayers(rawEnvironmental, sourceSpectrumNoise, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE);
       const scenePlan = synth.scenePlan;
       const noiseAnalysis = analyzePcm(rawNoise, source.sampleRate);
       const spectralCount = synth.spectralComponents.length;
