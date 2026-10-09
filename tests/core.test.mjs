@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { deriveSeed, Mulberry32 } from '../src/random.js';
 import { exactWeightedCounts, permuteIndex } from '../src/distribution.js';
 import { EnvironmentalNoiseSynth, buildSpectralField, SPECTRAL_AMPLITUDE_WEIGHTS } from '../src/synth.js';
@@ -38,6 +39,23 @@ test('synth is deterministic and audible', () => {
   const an = analyzePcm(aa,8000);
   assert.ok(an.rmsDb > -80 && an.rmsDb < -2);
   assert.ok(Number.isFinite(an.peakDb));
+});
+
+test('synth preserves the golden PCM fixture', () => {
+  const sampleRate = 8000;
+  const frames = Math.round(sampleRate * 2.5);
+  const synth = new EnvironmentalNoiseSynth({
+    seed:'golden-fixture', sampleRate, durationSeconds:2.5, profile:'indoorLow',
+    variation:.58, scenePace:.44, spectralDetail:.67
+  });
+  const [left, right] = synth.render(frames);
+  const bytes = new Uint8Array(frames * 8);
+  const view = new DataView(bytes.buffer);
+  for (let i = 0; i < frames; i++) {
+    view.setFloat32(i * 8, left[i], true);
+    view.setFloat32(i * 8 + 4, right[i], true);
+  }
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), 'aa104ecbf1238fedae77f2d32d07e54196b9ab03dc3a443e3026487601ab5f2c');
 });
 
 test('synth has no pathological single-sample jumps', () => {

@@ -61,12 +61,6 @@ class SmoothRandom {
   }
 }
 
-function equalPowerPan(x, pan) {
-  const p = clamp(pan, -1, 1);
-  const angle = (p + 1) * Math.PI / 4;
-  return [x * Math.cos(angle), x * Math.sin(angle)];
-}
-
 function centeredMultiplier(base, strength) {
   return Math.exp(Math.log(Math.max(1e-4, base)) * strength);
 }
@@ -358,7 +352,9 @@ export class EnvironmentalNoiseSynth {
     const b = this.scenePlan[Math.min(index + 1, this.scenePlan.length - 1)];
     const transitionStart = 1 - this.transitionFraction;
     const w = smoothstep((u - transitionStart) / Math.max(1e-6, this.transitionFraction));
-    return [a, b, w];
+    this.sceneA = a;
+    this.sceneB = b;
+    this.sceneW = w;
   }
 
   #updateSpectralControls() {
@@ -386,7 +382,7 @@ export class EnvironmentalNoiseSynth {
       const c = this.spectralComponents[i];
       const s = c.sinPhase, co = c.cosPhase;
       const rightWave = s * c.cosStereoPhase + co * c.sinStereoPhase;
-      const sceneGain = lerp(sceneA.spectralGains[i], sceneB.spectralGains[i], sceneW);
+      const sceneGain = sceneW === 0 ? sceneA.spectralGains[i] : lerp(sceneA.spectralGains[i], sceneB.spectralGains[i], sceneW);
       const amplitude = c.amplitude * c.ampMul * sceneGain;
       left += s * amplitude * (1 - c.stereoBalance);
       right += rightWave * amplitude * (1 + c.stereoBalance);
@@ -395,7 +391,8 @@ export class EnvironmentalNoiseSynth {
       c.cosPhase = co * c.stepCos - s * c.stepSin;
     }
     this.spectralControlRemaining--;
-    return [left, right];
+    this.spectralLeft = left;
+    this.spectralRight = right;
   }
 
   #buildEventPlan() {
@@ -416,9 +413,11 @@ export class EnvironmentalNoiseSynth {
       const ranges = [[0, 0], [48, 135], [95, 240], [120, 390], [220, 680]];
       const freq = r.range(ranges[type][0], ranges[type][1]);
       const level = r.range(0.012, type === 4 ? 0.031 : 0.058) * sceneEventMul;
+      const pan = r.range(-0.25, 0.25);
+      const angle = (clamp(pan, -1, 1) + 1) * Math.PI / 4;
       events.push({
         type, start, duration, freq, level,
-        pan: r.range(-0.25, 0.25), phase: r.range(0, TAU),
+        pan, panLeft: Math.cos(angle), panRight: Math.sin(angle), phase: r.range(0, TAU),
         attackFrac: r.range(0.24, 0.52),
         fmRate: r.range(0.05, 0.31), fmDepth: r.range(0.003, 0.018),
         harmonicRatio: r.range(1.38, 1.83), harmonicLevel: r.range(0.16, 0.38)
@@ -448,28 +447,31 @@ export class EnvironmentalNoiseSynth {
       let x = (Math.sin(phase1) + e.harmonicLevel * Math.sin(phase2));
       if (e.type === 4) x *= 0.72 + 0.28 * Math.sin(TAU * 1.7 * localT + e.phase * 0.2);
       x *= attack * e.level;
-      const [l, r] = equalPowerPan(x, e.pan);
-      left += l; right += r;
+      left += x * e.panLeft;
+      right += x * e.panRight;
     }
     this.activeEvents.length = write;
-    return [left, right];
+    this.eventLeft = left;
+    this.eventRight = right;
   }
 
-  nextStereo() {
+  #nextStereoInto() {
     const sr = this.sampleRate;
     const t = this.sampleIndex / sr;
-    const [sceneA, sceneB, sceneW] = this.#sceneBlend();
+    this.#sceneBlend();
+    const { sceneA, sceneB, sceneW } = this;
+    const inTransition = sceneW !== 0;
 
-    const lowMul = lerp(sceneA.lowMul, sceneB.lowMul, sceneW);
-    const midMul = lerp(sceneA.midMul, sceneB.midMul, sceneW);
-    const airMul = lerp(sceneA.airMul, sceneB.airMul, sceneW);
-    const modalMul = lerp(sceneA.modalMul, sceneB.modalMul, sceneW);
-    const textureMul = lerp(sceneA.textureMul, sceneB.textureMul, sceneW);
-    const stereoMul = lerp(sceneA.stereoMul, sceneB.stereoMul, sceneW);
-    const sceneLevelDb = lerp(sceneA.levelDb, sceneB.levelDb, sceneW);
-    const textureFlavor = lerp(sceneA.textureFlavor, sceneB.textureFlavor, sceneW);
-    const pulseRate = lerp(sceneA.pulseRate, sceneB.pulseRate, sceneW);
-    const pulseDepth = lerp(sceneA.pulseDepth, sceneB.pulseDepth, sceneW);
+    const lowMul = inTransition ? lerp(sceneA.lowMul, sceneB.lowMul, sceneW) : sceneA.lowMul;
+    const midMul = inTransition ? lerp(sceneA.midMul, sceneB.midMul, sceneW) : sceneA.midMul;
+    const airMul = inTransition ? lerp(sceneA.airMul, sceneB.airMul, sceneW) : sceneA.airMul;
+    const modalMul = inTransition ? lerp(sceneA.modalMul, sceneB.modalMul, sceneW) : sceneA.modalMul;
+    const textureMul = inTransition ? lerp(sceneA.textureMul, sceneB.textureMul, sceneW) : sceneA.textureMul;
+    const stereoMul = inTransition ? lerp(sceneA.stereoMul, sceneB.stereoMul, sceneW) : sceneA.stereoMul;
+    const sceneLevelDb = inTransition ? lerp(sceneA.levelDb, sceneB.levelDb, sceneW) : sceneA.levelDb;
+    const textureFlavor = inTransition ? lerp(sceneA.textureFlavor, sceneB.textureFlavor, sceneW) : sceneA.textureFlavor;
+    const pulseRate = inTransition ? lerp(sceneA.pulseRate, sceneB.pulseRate, sceneW) : sceneA.pulseRate;
+    const pulseDepth = inTransition ? lerp(sceneA.pulseDepth, sceneB.pulseDepth, sceneW) : sceneA.pulseDepth;
 
     this.sampleIndex++;
 
@@ -509,20 +511,22 @@ export class EnvironmentalNoiseSynth {
     const pulse = 1 + pulseDepth * Math.sin(this.mechanicalPhase);
     mid += (textureLow * lowWeight + textureMid * midWeight) * this.profile.textureBase * textureMul * pulse;
 
+    const overallModal = clamp(0.84 + 0.18 * modalMul, 0.88, 1.16);
     for (let modeIndex = 0; modeIndex < this.modes.length; modeIndex++) {
       const m = this.modes[modeIndex];
       const freq = m.baseFreq * (1 + m.drift.tick());
       m.phase += TAU * freq / sr;
       if (m.phase > TAU) m.phase -= TAU;
       const a = m.amp * (1 + m.ampDrift.tick());
-      const focusGain = lerp(sceneA.modeGains[modeIndex], sceneB.modeGains[modeIndex], sceneW);
-      const overallModal = clamp(0.84 + 0.18 * modalMul, 0.88, 1.16);
+      const focusGain = inTransition ? lerp(sceneA.modeGains[modeIndex], sceneB.modeGains[modeIndex], sceneW) : sceneA.modeGains[modeIndex];
       mid += Math.sin(m.phase) * a * focusGain * overallModal;
     }
 
     // Dense deterministic additive field: independent frequency magnitudes and phase
     // angles are superposed with slow independent amplitude/frequency evolution.
-    const [spectralL, spectralR] = this.#spectralSample(sceneA, sceneB, sceneW);
+    this.#spectralSample(sceneA, sceneB, sceneW);
+    const spectralL = this.spectralLeft;
+    const spectralR = this.spectralRight;
 
     const sideWhite = this.noiseRngSide.next() * 2 - 1;
     const side = this.sideLP.tick(sideWhite) * this.profile.stereoSide * stereoMul
@@ -530,19 +534,34 @@ export class EnvironmentalNoiseSynth {
     const levelDriftDb = this.masterDrift.tick() * (0.65 + 1.35 * this.variation);
     const level = 10 ** ((levelDriftDb + sceneLevelDb) / 20);
 
-    const [evL, evR] = this.#eventSample(t);
+    this.#eventSample(t);
+    const evL = this.eventLeft;
+    const evR = this.eventRight;
     const left = (mid + side + spectralL) * level + evL;
     const right = (mid - side + spectralR) * level + evR;
-    return [this.finalL2.tick(this.finalL1.tick(left)), this.finalR2.tick(this.finalR1.tick(right))];
+    this.outputLeft = this.finalL2.tick(this.finalL1.tick(left));
+    this.outputRight = this.finalR2.tick(this.finalR1.tick(right));
+  }
+
+  nextStereo() {
+    this.#nextStereoInto();
+    return [this.outputLeft, this.outputRight];
+  }
+
+  renderInto(left, right) {
+    const frames = Math.min(left.length, right.length);
+    for (let i = 0; i < frames; i++) {
+      this.#nextStereoInto();
+      left[i] = this.outputLeft;
+      right[i] = this.outputRight;
+    }
+    return frames;
   }
 
   render(frames) {
     const left = new Float32Array(frames);
     const right = new Float32Array(frames);
-    for (let i = 0; i < frames; i++) {
-      const [l, r] = this.nextStereo();
-      left[i] = l; right[i] = r;
-    }
+    this.renderInto(left, right);
     return [left, right];
   }
 }
