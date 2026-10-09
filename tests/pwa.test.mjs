@@ -22,16 +22,22 @@ test('PWA shell references the manifest, iOS icon, and service worker', async ()
   const worker = await text('sw.js');
   assert.match(index, /manifest\.webmanifest/);
   assert.match(index, /apple-touch-icon/);
-  assert.match(index, /src\/app\.js\?v=1\.5\.1/);
+  assert.match(index, /src\/app\.js\?v=1\.6\.0/);
   assert.match(app, /serviceWorker\.register\('\.\/sw\.js'\)/);
-  assert.match(worker, /driftbed-shell-v1\.5\.1/);
-  assert.match(worker, /src\/loudness\.js\?v=1\.5\.1/);
-  assert.match(worker, /src\/source-spectrum-noise\.js\?v=1\.5\.1/);
+  assert.match(worker, /driftbed-shell-v1\.6\.0/);
+  assert.match(worker, /src\/loudness\.js\?v=1\.6\.0/);
+  assert.match(worker, /src\/multi-component-spectrum-noise\.js\?v=1\.6\.0/);
+  assert.match(worker, /src\/source-spectrum-worker\.js\?v=1\.6\.0/);
+  assert.match(worker, /src\/source-component-analysis\.js/);
+  assert.match(worker, /src\/nonnegative-factorization\.js/);
 });
 
 test('app imports every synthesis helper used by its controls', async () => {
   const app = await text('src/app.js');
   assert.match(app, /import \{[^}]*buildSpectralField[^}]*\} from '\.\/synth\.js'/);
+  assert.match(app, /multi-component-spectrum-noise\.js\?v=1\.6\.0/);
+  assert.match(app, /renderSourceSpectrumNoiseInWorker/);
+  assert.match(app, /const OUTPUT_RECIPE_VERSION = 5/);
 });
 
 test('PWA icon files exist', async () => {

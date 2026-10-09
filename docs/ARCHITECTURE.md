@@ -1,14 +1,14 @@
-# Architecture — output recipe v4
+# Architecture — output recipe v5
 
 ## Deterministic identity
 
-The v4 audio output identity is:
+The v5 audio output identity is:
 
-`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
+`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
 
-The environment synthesizer remains algorithm v3. Source analysis drives the v1 source-spectrum follower and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
+The environment synthesizer remains algorithm v3. Audio source analysis drives the v2 multi-component source-spectrum model and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
 
-Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 4 adds the separate audio-only source-spectrum layer without modifying `EnvironmentalNoiseSynth`.
+Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 5 adds the separate audio-only multi-component source-spectrum layer without modifying `EnvironmentalNoiseSynth`.
 
 ## Timeline dataset
 
@@ -75,7 +75,21 @@ Pattern variety is expressed primarily through spectral and structural changes. 
 
 The validation suite checks both meaningful temporal spectral movement and bounded multi-second loudness variation.
 
-## Source-spectrum-following audio layer
+## Multi-component source-spectrum audio layer
+
+The v2 source model is deliberately a latent acoustic decomposition, not semantic stem separation. It does not promise to identify vocals, instruments, or background music in an arbitrary completed mix.
+
+1. A 24-band, 20 ms analysis timeline stores measured band power and stereo left/right/cross power.
+2. Time and frequency median neighborhoods produce soft sustained, transient, and diffuse masks whose sum is one for every active cell.
+3. The sustained power matrix is factorized with deterministic KL-NMF: farthest-point frame initialization, a maximum training-frame budget, fixed training iterations, fixed full-timeline activation iterations, template normalization, and duplicate-template merging.
+4. NMF reconstruction ratios divide the sustained mask. Measured source power is then assigned to each latent component, transient component, and diffuse component so component powers sum back to the measured source power in every band/frame cell.
+5. Every component receives independent deterministic band carriers, a component-level micro-modulation stream, activation-derived attack/release behavior, and its own stereo covariance. Components are recombined once and normalized only at the outer source-spectrum power-share boundary.
+
+The analysis and factorization run in a module Web Worker during hosted audio generation when the browser supports module workers. A synchronous fallback preserves functionality in environments without `Worker`.
+
+The source model's identity is `sourceSpectrumNoiseVersion = 2` and `sourceComponentModelVersion = 1`. The original v1 follower remains in `src/source-spectrum-noise.js` with its golden fixture for regression comparison; the v2 app path does not silently rewrite that contract.
+
+## Historical v1 source-spectrum-following audio layer
 
 The follower is a separate streaming filterbank. Sixteen logarithmically spaced second-order band-pass filters cover approximately 40 Hz through 0.45 Nyquist. Each band analyzes source power with attack/release envelopes, applies a small log-frequency smoothing kernel at a 32-sample control rate, and modulates a separately seeded carrier passed through a matching synthesis filter. Carrier RMS is normalized from deterministic impulse-response energy so band levels are comparable.
 
@@ -105,7 +119,7 @@ The noise-only WAV is therefore the exact isolated synthetic contribution used b
 
 ## Video path and dual output
 
-The browser-native path uses `captureStream()`, Web Audio, and `MediaRecorder`. It currently uses the environment synthesizer only; the source-spectrum follower is not claimed for video until its realtime AudioWorklet/capture integration has its own equivalence and performance evidence. The path simultaneously records:
+The browser-native path uses `captureStream()`, Web Audio, and `MediaRecorder`. It currently uses the environment synthesizer only; the multi-component source-spectrum model is not claimed for video until its realtime AudioWorklet/capture integration has its own equivalence and performance evidence. The path simultaneously records:
 
 1. original video plus mixed source/noise audio; and
 2. the same post-gain noise bus as separate audio-only WebM/Opus.

@@ -15,7 +15,7 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Lets you control relative level, pattern variety, scene pace, and spectral detail.
 - Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
 - Exports a separately previewable/downloadable noise-only track.
-- For audio, adds a deterministic source-spectrum-following stochastic layer so the added texture follows the source's broad spectral energy instead of behaving like static broadband hiss.
+- For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
 
 ## Privacy
 
@@ -30,7 +30,7 @@ The web app processes the selected file locally with browser APIs. The source me
 5. Select **Generate outputs**.
 6. Preview or download the merged media and the noise-only track.
 
-For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version and source-spectrum follower version separately. The source file still affects the follower output and final source-relative gain plan.
+For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version, source-spectrum noise version, and component-model version separately. The source file still affects the component model and final source-relative gain plan.
 
 ## Install on a phone
 
@@ -65,9 +65,9 @@ The synthesis engine combines deterministic layers:
 
 1. A timeline of weighted acoustic regimes, smoothly crossfaded over the media duration.
 2. An independently seeded spectral field whose components have their own frequency, magnitude, phase, stereo offset, and slow drift.
-3. For offline audio, a source-spectrum-following stochastic layer: a logarithmic filterbank estimates smoothed source-band power, then independently seeded filtered carriers are shaped by those envelopes. A soft source-activity gate lets the layer decay through digital silence, and stereo carrier mixing follows the source's approximate band correlation.
+3. For offline audio, a multi-component source-spectrum layer: a 24-band, 20 ms analysis timeline estimates source power and stereo covariance; soft time/frequency median masks separate sustained, transient, and diffuse structure; deterministic KL-NMF discovers four sustained latent templates; and exact ratio masks partition measured source power among those components. Each component has independent filtered carriers, component-level modulation, temporal behavior, and stereo covariance.
 
-The environmental synthesizer remains algorithm v3, preserving its golden PCM contract. Audio output recipe v4 combines normalized environmental and source-spectrum layers by an explicit power share before the existing source-relative gain plan. The result remains controlled and reproducible beneath speech, music, video, or other foreground media. The current realtime video path uses the validated environment-only path until the same follower is integrated and tested there.
+The environmental synthesizer remains algorithm v3, preserving its golden PCM contract. Audio output recipe v5 combines normalized environmental and multi-component source-spectrum layers by an explicit power share before the existing source-relative gain plan. The result remains controlled and reproducible beneath speech, music, video, or other foreground media. The current realtime video path remains on the validated environment-only path until an equivalent streaming integration is tested there.
 
 ## Repository layout
 

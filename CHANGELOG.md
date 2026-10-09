@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.6.0 — multi-component source-spectrum audio model
+
+- Added a 24-band, 20 ms source analysis timeline with soft sustained, transient, and diffuse masks.
+- Added deterministic KL-NMF latent spectral components with bounded training, fixed activation inference, normalized templates, and duplicate merging.
+- Added exact ratio-mask power partitioning so latent component power sums back to measured source power per band and frame.
+- Added independent component carriers, component-level micro-modulation, activation-derived dynamics, and per-component stereo covariance.
+- Moved audio source analysis and rendering to a module Web Worker when available, with a synchronous fallback.
+- Preserved the v1 source-spectrum follower and its golden fixture; video remains on the validated environment-only path.
+- Bumped the audio recipe to v5 and refreshed the PWA cache graph to v1.6.0.
+
 ## v1.5.1 — cache-bust changed browser modules
 
 - Versioned the changed loudness and source-spectrum module URLs as well as the application entry so an already-active previous service worker cannot combine the new app with stale module exports during its activation window.

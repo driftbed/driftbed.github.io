@@ -1,6 +1,6 @@
-# Mapping the Generalized Deterministic Dataset Algorithm to Audio v4
+# Mapping the Generalized Deterministic Dataset Algorithm to Audio v5
 
-Version 4 treats both **time** and **frequency** as deterministic synthetic datasets and adds a separate source-spectrum-following stochastic layer for offline audio. The existing environmental synthesizer remains version 3.
+Version 5 treats both **time** and **frequency** as deterministic synthetic datasets and adds a deterministic multi-component source-spectrum stochastic layer for offline audio. The existing environmental synthesizer remains version 3.
 
 ## 1. Timeline objects
 
@@ -161,16 +161,16 @@ The complete v3 environmental identity is:
 
 `algorithmVersion + seed + duration + sampleRate + profile + variation + scenePace + spectralDetail`
 
-## 13. Source-spectrum-following stochastic layer
+## 13. Multi-component source-spectrum stochastic layer
 
-The audio output recipe adds a second source-dependent dataset without changing the v3 environment data:
+The audio output recipe adds a second source-dependent dataset without changing the v3 environment data. The model is intentionally latent and structural; it does not claim semantic vocal/instrumental stems:
 
-`sourceBand(b) = F(sourcePCM, sourceSpectrumNoiseVersion, sampleRate, b)`
+`sourceModel = F(sourcePCM, sourceSpectrumNoiseVersion=2, sourceComponentModelVersion=1, sampleRate)`
 
-Sixteen logarithmic bands estimate smoothed power and left/right cross-power. Each band modulates independently seeded, band-limited carriers. Neighboring log-power values are blended at control rate so isolated harmonics do not become narrow, unstable noise stripes. A soft broadband activity gate lets the layer follow pauses without hard clicks.
+Twenty-four logarithmic bands at 20 ms frames estimate power and left/right cross-power. Soft time/frequency median masks separate sustained, transient, and diffuse structure. Deterministic KL-NMF factorizes sustained power into four templates and full-timeline activations. Exact ratio masks assign measured power to all component layers, preserving the invariant `sum_k P[k,b,t] = V[b,t]` within floating-point tolerance. Each component modulates independently seeded, band-limited carriers and retains its own activation dynamics, small shared micro-modulation, and stereo covariance.
 
-The raw source-following layer is normalized and combined with the normalized environmental layer by power share before source-relative gain planning:
+The raw source-following layer is normalized once and combined with the normalized environmental layer by power share before source-relative gain planning:
 
 `rawNoise = sqrt(1 - q) × environment + sqrt(q) × sourceSpectrum`
 
-with `q = 0.35` in the current recipe. The v4 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 1`, and `algorithmVersion = 4` so the stable environmental contract and the new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.
+with `q = 0.35` in the current recipe. The v5 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 2`, `sourceComponentModelVersion = 1`, and `algorithmVersion = 5` so the stable environmental contract and the new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.
