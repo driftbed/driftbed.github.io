@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Driftbed — Ambient Beds for Audio &amp; Video</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">DRIFTBED · DETERMINISTIC AMBIENT SYNTHESIS</p>
+      <h1>Driftbed</h1>
+      <p class="lede">Add natural, loop-free ambient background to audio or video. Driftbed runs locally in your browser, keeps the source file private, and lets you reproduce the same evolving sound bed whenever you reuse the recipe.</p>
+    </header>
+
+    <section class="card">
+      <input id="file" type="file" accept="audio/*,video/*" hidden />
+      <button id="drop" class="drop" type="button">
+        <strong>Drop audio or video here</strong>
+        <span>or click to choose a file</span>
+        <small id="fileName">No file selected</small>
+      </button>
+    </section>
+
+    <section class="grid card">
+      <label>Environment<select id="profile"></select></label>
+      <label>Quick strength preset<select id="strengthPreset"></select></label>
+
+      <label class="wide">Noise level relative to source
+        <div class="level-control">
+          <input id="strength" type="range" min="-60" max="-3" step="0.5" value="-32" />
+          <div class="db-input"><input id="strengthDb" type="number" min="-60" max="-3" step="0.5" value="-32" /><span>dB</span></div>
+        </div>
+        <small id="strengthInfo"></small>
+      </label>
+
+      <label class="wide">Pattern variety
+        <input id="variation" type="range" min="0" max="1" step="0.01" value="0.70" />
+        <small id="advancedInfo"></small>
+      </label>
+      <label class="wide">Scene change pace
+        <input id="scenePace" type="range" min="0" max="1" step="0.01" value="0.58" />
+        <small id="paceInfo"></small>
+      </label>
+      <label class="wide">Frequency detail / spectral complexity
+        <input id="spectralDetail" type="range" min="0" max="1" step="0.01" value="0.62" />
+        <small id="spectralInfo"></small>
+      </label>
+      <label class="wide">Seed
+        <div class="row"><input id="seed" type="text" spellcheck="false" /><button id="randomize" type="button" class="secondary">Randomize</button></div>
+      </label>
+      <div class="wide note">The relative-noise setting is measured below the source's robust program level. More negative values are weaker; values closer to 0 dB are stronger. The same seed, environment, duration, sample rate, pattern controls, frequency detail and algorithm version regenerate the same synthetic background. The source is never uploaded by this app.</div>
+    </section>
+
+    <section class="card actions">
+      <button id="generate" disabled>Generate outputs</button>
+      <button id="recipeBtn" class="secondary">Copy recipe</button>
+      <progress id="progress" max="1" value="0"></progress>
+      <p id="status" class="status">Choose an audio or video file.</p>
+      <p id="metrics" class="metrics"></p>
+    </section>
+
+    <section class="players card">
+      <div class="output-panel"><h2>Original</h2><audio id="originalPlayer" controls class="player" hidden></audio></div>
+      <div class="output-panel"><h2>Merged media</h2><audio id="resultPlayer" controls class="player" hidden></audio><button id="downloadBtn" class="download-output" disabled>Download merged media</button></div>
+      <div class="output-panel"><h2>Noise only</h2><audio id="noisePlayer" controls class="player" hidden></audio><button id="downloadNoiseBtn" class="download-output" disabled>Download noise only</button><small class="note">This is the same deterministic noise contribution used in the merged output, after its planned gain.</small></div>
+    </section>
+
+    <details class="card">
+      <summary>Implementation notes</summary>
+      <p>Audio uses source analysis plus a deterministic timeline dataset: exact weighted scene categories are scattered by a seeded Feistel permutation, neighboring scenes share hierarchical macro-context, and smoothly crossfaded regimes alter modal focus, spectral balance, stochastic texture, stereo width, modulation and event density. A deterministic additive spectral field superposes many independently seeded frequency components with separate magnitudes, phases, stereo phase offsets and slow drift; each scene reshapes those per-frequency amplitudes using exact weighted classes while preserving bounded total power. Source-relative level planning and peak-safe mixing are applied afterward. Every generation also emits the noise-only track. Video uses the same deterministic synthesizer with browser-native real-time capture and MediaRecorder; current Chromium browsers are recommended.</p>
+    </details>
+  </main>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
