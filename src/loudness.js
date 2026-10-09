@@ -76,3 +76,34 @@ export function mixPcm(sourceChannels, noiseChannels, noiseGainDb, masterGainDb 
   }
   return out;
 }
+
+function rmsPower(channels) {
+  if (!channels?.length || !channels[0]?.length) return 0;
+  let sum = 0;
+  const frames = channels[0].length;
+  for (let i = 0; i < frames; i++) {
+    for (const channel of channels) {
+      const x = channel[i] || 0;
+      sum += x * x;
+    }
+  }
+  return Math.sqrt(sum / Math.max(1, frames * channels.length));
+}
+
+/** Combine independent raw noise layers by power share before total-noise gain planning. */
+export function combineNoiseLayers(environmentChannels, sourceSpectrumChannels, sourcePowerShare = 0.35) {
+  const frames = environmentChannels?.[0]?.length || sourceSpectrumChannels?.[0]?.length || 0;
+  const outputChannels = Math.max(2, environmentChannels?.length || 0, sourceSpectrumChannels?.length || 0);
+  const out = Array.from({ length: outputChannels }, () => new Float32Array(frames));
+  const share = Math.max(0, Math.min(1, Number(sourcePowerShare) || 0));
+  const environmentGain = Math.sqrt(1 - share) / Math.max(EPS, rmsPower(environmentChannels));
+  const sourceGain = Math.sqrt(share) / Math.max(EPS, rmsPower(sourceSpectrumChannels));
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < outputChannels; c++) {
+      const environment = environmentChannels?.[Math.min(c, (environmentChannels?.length || 1) - 1)]?.[i] || 0;
+      const source = sourceSpectrumChannels?.[Math.min(c, (sourceSpectrumChannels?.length || 1) - 1)]?.[i] || 0;
+      out[c][i] = environment * environmentGain + source * sourceGain;
+    }
+  }
+  return out;
+}

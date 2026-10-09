@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { deriveSeed, Mulberry32 } from '../src/random.js';
 import { exactWeightedCounts, permuteIndex } from '../src/distribution.js';
 import { EnvironmentalNoiseSynth, buildSpectralField, SPECTRAL_AMPLITUDE_WEIGHTS } from '../src/synth.js';
-import { analyzePcm, planNoiseGain, applyGainPcm } from '../src/loudness.js';
+import { analyzePcm, planNoiseGain, applyGainPcm, combineNoiseLayers } from '../src/loudness.js';
 
 test('domain-separated seeds are stable and distinct', () => {
   assert.equal(deriveSeed('abc', 5, 'content'), deriveSeed('abc', 5, 'content'));
@@ -85,6 +85,17 @@ test('isolated noise gain path scales PCM predictably', () => {
   assert.ok(Math.abs(out[0][0] - 0.2) < 1e-6);
   assert.ok(Math.abs(out[0][1] + 0.2) < 1e-6);
   assert.ok(Math.abs(out[1][2] - 0.2) < 1e-6);
+});
+
+test('source-spectrum power share is applied before total-noise planning', () => {
+  const environment = [new Float32Array([1, -1, 1, -1]), new Float32Array([1, -1, 1, -1])];
+  const sourceSpectrum = [new Float32Array([1, -1, 1, -1]), new Float32Array([1, -1, 1, -1])];
+  const environmentOnly = combineNoiseLayers(environment, sourceSpectrum, 0);
+  const sourceOnly = combineNoiseLayers(environment, sourceSpectrum, 1);
+  const environmentRms = Math.sqrt(environmentOnly[0].reduce((sum, x) => sum + x * x, 0) / 4);
+  const sourceRms = Math.sqrt(sourceOnly[0].reduce((sum, x) => sum + x * x, 0) / 4);
+  assert.ok(Math.abs(environmentRms - 1) < 1e-6);
+  assert.ok(Math.abs(sourceRms - 1) < 1e-6);
 });
 
 test('timeline uses exact weighted scene quotas with deterministic permutation', async () => {
