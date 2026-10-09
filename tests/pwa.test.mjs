@@ -23,7 +23,7 @@ test('PWA shell references the manifest, iOS icon, and service worker', async ()
   assert.match(index, /manifest\.webmanifest/);
   assert.match(index, /apple-touch-icon/);
   assert.match(app, /serviceWorker\.register\('\.\/sw\.js'\)/);
-  assert.match(worker, /driftbed-shell-v1\.4\.0/);
+  assert.match(worker, /driftbed-shell-v1\.4\.1/);
 });
 
 test('app imports every synthesis helper used by its controls', async () => {
