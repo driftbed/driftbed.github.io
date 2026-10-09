@@ -4,7 +4,7 @@ const APP_SHELL = [
   '/index.html',
   '/styles.css',
   '/manifest.webmanifest',
-  '/src/app.js',
+  '/src/app.js?v=1.4.1',
   '/src/audio-io.js',
   '/src/distribution.js',
   '/src/loudness.js',
