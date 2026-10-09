@@ -26,6 +26,11 @@ test('PWA shell references the manifest, iOS icon, and service worker', async ()
   assert.match(worker, /driftbed-shell-v1\.4\.0/);
 });
 
+test('app imports every synthesis helper used by its controls', async () => {
+  const app = await text('src/app.js');
+  assert.match(app, /import \{[^}]*buildSpectralField[^}]*\} from '\.\/synth\.js'/);
+});
+
 test('PWA icon files exist', async () => {
   await Promise.all([
     access(new URL('../icons/icon-192.png', import.meta.url)),

@@ -1,5 +1,5 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, summarizeSceneTimeline } from './synth.js';
+import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from './synth.js';
 import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm } from './loudness.js';
 import { encodeWav16 } from './wav.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
