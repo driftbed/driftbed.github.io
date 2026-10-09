@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.1 — cache-bust changed browser modules
+
+- Versioned the changed loudness and source-spectrum module URLs as well as the application entry so an already-active previous service worker cannot combine the new app with stale module exports during its activation window.
+
 ## v1.5.0 — source-spectrum-following audio noise
 
 - Added a deterministic `SourceSpectrumNoiseFollower` filterbank that follows source spectral energy with smoothed power envelopes, source-activity gating, carrier normalization, and stereo covariance.

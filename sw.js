@@ -1,17 +1,17 @@
-const CACHE_NAME = 'driftbed-shell-v1.5.0';
+const CACHE_NAME = 'driftbed-shell-v1.5.1';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/styles.css',
   '/manifest.webmanifest',
-  '/src/app.js?v=1.5.0',
+  '/src/app.js?v=1.5.1',
   '/src/audio-io.js',
   '/src/distribution.js',
-  '/src/loudness.js',
+  '/src/loudness.js?v=1.5.1',
   '/src/profiles.js',
   '/src/random.js',
   '/src/synth.js',
-  '/src/source-spectrum-noise.js',
+  '/src/source-spectrum-noise.js?v=1.5.1',
   '/src/video-export.js',
   '/src/wav.js',
   '/icons/icon-192.png',

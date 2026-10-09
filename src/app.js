@@ -1,10 +1,10 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
 import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from './synth.js';
-import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm, combineNoiseLayers } from './loudness.js';
+import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm, combineNoiseLayers } from './loudness.js?v=1.5.1';
 import { encodeWav16 } from './wav.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
 import { exportVideoRealtime } from './video-export.js';
-import { DEFAULT_SOURCE_SPECTRUM_CONFIG, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE, SOURCE_SPECTRUM_NOISE_VERSION, SourceSpectrumNoiseFollower } from './source-spectrum-noise.js';
+import { DEFAULT_SOURCE_SPECTRUM_CONFIG, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE, SOURCE_SPECTRUM_NOISE_VERSION, SourceSpectrumNoiseFollower } from './source-spectrum-noise.js?v=1.5.1';
 
 const OUTPUT_RECIPE_VERSION = 4;
 
