@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.8.2 — capability-aware engine benchmark
+
+- Added a dedicated benchmark page with deterministic stereo fixtures, correctness gates, warmups, interleaved worker timing, median/p90/IQR/CV summaries, report export, and hidden-tab invalidation.
+- Compare only the shared PCM analysis and scaling kernels currently implemented by JavaScript and the staged Wasm foundation; environment synthesis, source analysis, NMF, source rendering, and complete-pipeline rows remain visibly unavailable until both backends support them.
+- Added cache-busted benchmark modules, mobile-friendly responsive controls, keyboard focus states, reduced-motion handling, and a main-page link to the benchmark.
+
 ## v1.7.0 — Wasm-first backend foundation
 
 - Added a pinned, dependency-free Rust `wasm32-unknown-unknown` build with a versioned ABI, numeric contract, deterministic self-test, and checked scalar PCM functions.

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Driftbed — Engine Benchmark</title>
+  <meta name="description" content="Compare Driftbed's WebAssembly foundation and JavaScript engine on this device." />
+  <meta name="theme-color" content="#0b0d10" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./benchmark.css" />
+</head>
+<body>
+  <main class="shell benchmark-shell">
+    <header class="benchmark-header">
+      <a class="button-link secondary back-link" href="./">← Back to Driftbed</a>
+      <p class="eyebrow">DRIFTBED · ENGINE BENCHMARK</p>
+      <h1>WebAssembly vs JavaScript</h1>
+      <p class="lede">Measure Driftbed's processing engines directly in this browser. The benchmark uses deterministic synthetic audio; nothing is uploaded.</p>
+    </header>
+
+    <section class="engine-readiness" aria-labelledby="readinessHeading">
+      <h2 id="readinessHeading" class="sr-only">Engine readiness</h2>
+      <article class="engine-card card">
+        <div class="engine-card-heading"><span class="engine-name">WebAssembly</span><span id="wasmState" class="state" data-state="partial">Checking…</span></div>
+        <p id="wasmDetail">Checking the validated Wasm core…</p>
+        <small id="wasmMeta">—</small>
+      </article>
+      <article class="engine-card card">
+        <div class="engine-card-heading"><span class="engine-name">JavaScript</span><span id="jsState" class="state" data-state="ready">Ready</span></div>
+        <p id="jsDetail">Complete JavaScript reference backend</p>
+        <small>Production reference engine</small>
+      </article>
+    </section>
+
+    <section class="card benchmark-controls" aria-labelledby="controlsHeading">
+      <h2 id="controlsHeading">Benchmark workload</h2>
+      <label for="preset">Workload preset</label>
+      <select id="preset">
+        <option value="quick">Quick</option>
+        <option value="standard" selected>Standard</option>
+        <option value="stress">Stress</option>
+      </select>
+      <p id="presetDescription" class="note"></p>
+      <div class="benchmark-actions">
+        <button id="runBenchmark" type="button" disabled>Run benchmark</button>
+        <button id="stopBenchmark" class="secondary" type="button" hidden>Stop</button>
+      </div>
+      <p class="note">Benchmarks stay on this device. Keep this tab visible while the run is active.</p>
+      <details id="advancedSettings">
+        <summary>Advanced settings</summary>
+        <div class="advanced-grid">
+          <label for="sampleRate">Sample rate<select id="sampleRate"><option value="48000" selected>48 kHz</option><option value="44100">44.1 kHz</option></select></label>
+          <label for="durationSeconds">Fixture duration<input id="durationSeconds" type="number" min="0.25" step="0.25" value="2" /> <small>seconds</small></label>
+          <label for="warmups">Warm-up runs<input id="warmups" type="number" min="0" max="20" step="1" value="3" /></label>
+          <label for="measuredRuns">Measured runs<input id="measuredRuns" type="number" min="1" max="30" step="1" value="9" /></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="benchmark-status card" aria-labelledby="statusHeading">
+      <h2 id="statusHeading" class="sr-only">Benchmark progress</h2>
+      <p id="benchmarkStatus" class="status" aria-live="polite">Checking engine readiness…</p>
+      <div class="progress-wrap"><span id="progressLabel">Waiting to begin</span><progress id="benchmarkProgress" max="1" value="0" hidden aria-label="Benchmark progress"></progress></div>
+    </section>
+
+    <section id="summary" class="summary-card card" hidden aria-labelledby="summaryTitle">
+      <p class="eyebrow">RESULT SUMMARY</p>
+      <h2 id="summaryTitle">Shared-kernel comparison</h2>
+      <p id="summaryDetail"></p>
+      <div class="summary-metrics">
+        <div><span>WebAssembly</span><strong id="summaryWasm">—</strong></div>
+        <div><span>JavaScript</span><strong id="summaryJs">—</strong></div>
+        <div><span>Run</span><strong id="summaryRounds">—</strong></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="resultsHeading">
+      <div class="section-heading"><div><p class="eyebrow">DETAILED RESULTS</p><h2 id="resultsHeading">What is comparable in this build</h2></div></div>
+      <div id="results" class="result-list"></div>
+    </section>
+
+    <section class="report-actions card">
+      <button id="copyResults" class="secondary" type="button" disabled>Copy results</button>
+      <button id="copyJson" class="secondary" type="button" disabled>Copy JSON</button>
+      <p class="note">No benchmark results or device information are uploaded.</p>
+    </section>
+
+    <details class="card environment-card">
+      <summary>Test environment</summary>
+      <pre id="environmentDetails">Run a benchmark to inspect the local test environment.</pre>
+    </details>
+
+    <p class="benchmark-footer"><a href="./">Return to Driftbed</a></p>
+  </main>
+  <script type="module" src="./src/benchmark/benchmark-page.js?v=1.8.2"></script>
+</body>
+</html>

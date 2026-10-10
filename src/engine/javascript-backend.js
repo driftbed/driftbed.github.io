@@ -19,7 +19,17 @@ export class JavaScriptBackend {
   algorithmVersion = ALGORITHM_VERSION;
   sourceSpectrumNoiseVersion = SOURCE_SPECTRUM_NOISE_VERSION;
   sourceComponentModelVersion = SOURCE_COMPONENT_MODEL_VERSION;
-  capabilities = Object.freeze({ fullPipeline: true, wasmFoundation: false });
+  capabilities = Object.freeze({
+    pcmAnalysis: true,
+    sampleScaling: true,
+    environmentSynthesis: true,
+    sourceAnalysis: true,
+    nmf: true,
+    sourceNoiseRendering: true,
+    completeAudioPipeline: true,
+    fullPipeline: true,
+    wasmFoundation: false
+  });
   fallbackReason = '';
 
   createEnvironmentSynth(options) {
@@ -36,6 +46,31 @@ export class JavaScriptBackend {
 
   analyzePcm(channels, sampleRate) {
     return analyzePcm(channels, sampleRate);
+  }
+
+  analyzePcmFixture(left, right) {
+    if (!(left instanceof Float32Array) || !(right instanceof Float32Array) || left.length !== right.length || left.length === 0) {
+      throw new Error('The PCM benchmark fixture must contain equal, non-empty Float32Array channels.');
+    }
+    let sum = 0;
+    let peak = 0;
+    for (let i = 0; i < left.length; i++) {
+      const leftValue = left[i];
+      const rightValue = right[i];
+      if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) throw new Error('The PCM benchmark fixture contains a non-finite sample.');
+      sum += (leftValue * leftValue + rightValue * rightValue) * 0.5;
+      peak = Math.max(peak, Math.abs(leftValue), Math.abs(rightValue));
+    }
+    return { rms: Math.sqrt(sum / left.length), peak };
+  }
+
+  scalePcmFixture(input, gain) {
+    if (!(input instanceof Float32Array) || input.length === 0 || !Number.isFinite(gain)) {
+      throw new Error('The PCM scaling benchmark requires a non-empty Float32Array and finite gain.');
+    }
+    const output = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) output[i] = input[i] * gain;
+    return output;
   }
 
   planNoiseGain(sourceAnalysis, rawNoiseAnalysis, relativeDb, outputCeilingDb) {

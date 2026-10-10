@@ -17,6 +17,7 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Exports a separately previewable/downloadable noise-only track.
 - For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
 - Uses one backend-neutral processing-engine API. Automatic mode probes the committed Wasm core and safely falls back to the JavaScript reference path until the full Wasm DSP pipeline passes parity gates.
+- Includes a capability-aware [engine benchmark](benchmark.html) for the shared kernels currently implemented by both backends. It reports the staged Wasm foundation honestly and does not claim a full-pipeline speedup before that pipeline exists and passes parity checks.
 
 ## Privacy
 
@@ -30,6 +31,8 @@ The web app processes the selected file locally with browser APIs. The source me
 4. Optionally change the seed and variety controls.
 5. Select **Generate outputs**.
 6. Preview or download the merged media and the noise-only track.
+
+To compare the available processing kernels, open [Benchmark engines](benchmark.html). The benchmark uses a deterministic stereo fixture, correctness checks before timing, warmups, interleaved runs, robust timing summaries, and a worker so the page remains responsive. Unsupported Wasm capabilities are shown as unavailable rather than being timed as a misleading JavaScript-only comparison.
 
 For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version, source-spectrum noise version, component-model version, resolved backend, ABI version, and numeric-contract version separately. The source file still affects the component model and final source-relative gain plan.
 

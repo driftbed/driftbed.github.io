@@ -16,6 +16,12 @@ The application imports one public engine factory from `src/engine/engine.js`. T
 
 The Rust module in `rust/` is the first staged Wasm boundary. It uses no third-party crates, keeps raw-pointer handling inside `rust/src/abi.rs`, exposes a versioned ABI, and currently advertises only the validated scalar foundation capability. The full pipeline capability is intentionally reserved until browser parity, determinism, boundary, and performance checks pass. `rust/BUILD.md` is the reproducible build contract and `tests/wasm.test.mjs` tests the committed artifact directly.
 
+## Engine benchmark contract
+
+`benchmark.html` compares only capabilities advertised by both the JavaScript reference backend and the loaded Wasm artifact. The current shared set is the stereo PCM analysis kernel and PCM scaling kernel; environment synthesis, source analysis, NMF, source-noise rendering, and the complete audio pipeline are not benchmarked until the Wasm capability mask and backend implementation both support them.
+
+The benchmark worker creates one deterministic stereo fixture, runs correctness probes before collecting timings, excludes warmups, interleaves backend order across measured rounds, and summarizes `performance.now()` samples with median, p90, interquartile range, and coefficient of variation. Results include backend startup separately from steady-state kernel timings. A hidden-tab transition invalidates an active run, and the report records the fixture, protocol, ABI, numeric contract, capability mask, browser environment, and preset so results are reproducible and not presented as a universal speed claim.
+
 ## Timeline dataset
 
 The media duration is divided into deterministic scene slots. Each slot is one generated dataset object.

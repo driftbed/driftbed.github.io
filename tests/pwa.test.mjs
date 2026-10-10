@@ -22,15 +22,18 @@ test('PWA shell references the manifest, iOS icon, and service worker', async ()
   const worker = await text('sw.js');
   assert.match(index, /manifest\.webmanifest/);
   assert.match(index, /apple-touch-icon/);
-  assert.match(index, /src\/app\.js\?v=1\.7\.0/);
+  assert.match(index, /src\/app\.js\?v=1\.8\.2/);
   assert.match(app, /serviceWorker\.register\('\.\/sw\.js'\)/);
-  assert.match(worker, /driftbed-shell-v1\.7\.0/);
+  assert.match(worker, /driftbed-shell-v1\.8\.2/);
+  assert.match(worker, /\/benchmark\.html/);
+  assert.match(worker, /\/benchmark\.css/);
   assert.match(worker, /src\/loudness\.js\?v=1\.7\.0/);
   assert.match(worker, /src\/multi-component-spectrum-noise\.js\?v=1\.7\.0/);
   assert.match(worker, /src\/source-spectrum-worker\.js\?v=1\.7\.0/);
   assert.match(worker, /src\/engine\/engine\.js\?v=1\.7\.0/);
   assert.match(worker, /src\/engine\/wasm-loader\.js\?v=1\.7\.0/);
   assert.match(worker, /wasm\/driftbed_core\.wasm/);
+  assert.match(worker, /src\/benchmark\/benchmark-worker\.js\?v=1\.8\.2/);
   assert.match(worker, /src\/source-component-analysis\.js/);
   assert.match(worker, /src\/nonnegative-factorization\.js/);
 });
@@ -42,6 +45,15 @@ test('app imports every synthesis helper used by its controls', async () => {
   assert.doesNotMatch(app, /from '\.\/loudness\.js/);
   assert.match(app, /const OUTPUT_RECIPE_VERSION = 6/);
   assert.match(app, /processingBackend/);
+});
+
+test('main page exposes semantic benchmark navigation', async () => {
+  const index = await text('index.html');
+  const benchmark = await text('benchmark.html');
+  assert.match(index, /<a class="button-link secondary" href="\.\/benchmark\.html">Benchmark engines/);
+  assert.match(benchmark, /href="\.\/"/);
+  assert.match(benchmark, /src\/benchmark\/benchmark-page\.js\?v=1\.8\.2/);
+  assert.match(benchmark, /aria-live="polite"/);
 });
 
 test('PWA icon files exist', async () => {
