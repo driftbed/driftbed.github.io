@@ -1,4 +1,4 @@
-# Mapping the Generalized Deterministic Dataset Algorithm to Audio v5
+# Mapping the Generalized Deterministic Dataset Algorithm to Audio v6
 
 Version 5 treats both **time** and **frequency** as deterministic synthetic datasets and adds a deterministic multi-component source-spectrum stochastic layer for offline audio. The existing environmental synthesizer remains version 3.
 
@@ -173,4 +173,4 @@ The raw source-following layer is normalized once and combined with the normaliz
 
 `rawNoise = sqrt(1 - q) × environment + sqrt(q) × sourceSpectrum`
 
-with `q = 0.35` in the current recipe. The v5 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 2`, `sourceComponentModelVersion = 1`, and `algorithmVersion = 5` so the stable environmental contract and the new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.
+with `q = 0.35` in the current recipe. The v6 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 2`, `sourceComponentModelVersion = 1`, `processingBackend`, `engineAbiVersion`, `numericContractVersion`, and `algorithmVersion = 6` so the stable environmental contract, backend contract, and new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.

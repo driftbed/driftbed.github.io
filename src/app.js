@@ -1,18 +1,16 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from './synth.js';
-import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm, combineNoiseLayers } from './loudness.js?v=1.6.0';
-import { encodeWav16 } from './wav.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
 import { exportVideoRealtime } from './video-export.js';
-import { DEFAULT_MULTI_COMPONENT_CONFIG, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE, SOURCE_COMPONENT_MODEL_VERSION, SOURCE_SPECTRUM_NOISE_VERSION, renderSourceSpectrumNoiseInWorker } from './multi-component-spectrum-noise.js?v=1.6.0';
+import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.7.0';
 
-const OUTPUT_RECIPE_VERSION = 5;
+const OUTPUT_RECIPE_VERSION = 6;
 
 const $ = s => document.querySelector(s);
 const els = {
   file: $('#file'), drop: $('#drop'), fileName: $('#fileName'), profile: $('#profile'),
   strengthPreset: $('#strengthPreset'), strength: $('#strength'), strengthDb: $('#strengthDb'), strengthInfo: $('#strengthInfo'),
   variation: $('#variation'), scenePace: $('#scenePace'), paceInfo: $('#paceInfo'), spectralDetail: $('#spectralDetail'), spectralInfo: $('#spectralInfo'), seed: $('#seed'), randomize: $('#randomize'), generate: $('#generate'), status: $('#status'), metrics: $('#metrics'), progress: $('#progress'),
+  enginePreference: $('#enginePreference'), engineStatus: $('#engineStatus'),
   original: $('#originalPlayer'), result: $('#resultPlayer'), noise: $('#noisePlayer'),
   download: $('#downloadBtn'), downloadNoise: $('#downloadNoiseBtn'), recipe: $('#recipeBtn'), advanced: $('#advancedInfo'), install: $('#installBtn')
 };
@@ -37,6 +35,10 @@ let lastMergedBlob = null, lastMergedName = null;
 let lastNoiseBlob = null, lastNoiseName = null;
 const objectUrls = new Set();
 const playerUrls = new Map();
+let enginePreference = 'auto';
+try { enginePreference = normalizeEnginePreference(localStorage.getItem(ENGINE_PREFERENCE_KEY)); } catch {}
+let activeEngine = null;
+let enginePromise = Promise.resolve(null);
 
 function isVideo(file) { return file?.type?.startsWith('video/') || /\.(mp4|webm|mov|mkv|m4v)$/i.test(file?.name || ''); }
 function setStatus(text, error=false) { els.status.textContent = text; els.status.className = error ? 'status error' : 'status'; }
@@ -94,8 +96,39 @@ window.addEventListener('appinstalled', () => {
 
 if (standalone()) els.install.hidden = true;
 
+function announceEngine(engine) {
+  activeEngine = engine;
+  const suffix = engine.backend === 'javascript' && engine.fallbackReason ? ' (automatic fallback)' : '';
+  els.engineStatus.textContent = `Engine: ${engine.backend === 'wasm' ? 'WebAssembly' : 'JavaScript'}${suffix}`;
+  els.engineStatus.title = engine.fallbackReason || '';
+  if (selectedFile) setStatus(`Processing engine ready: ${engine.backend === 'wasm' ? 'WebAssembly' : 'JavaScript'}.`);
+  updateSpectralInfo();
+}
+
+function loadEngine() {
+  activeEngine = null;
+  els.engineStatus.textContent = enginePreference === 'wasm' ? 'Engine: loading WebAssembly…' : 'Engine: selecting backend…';
+  enginePromise = createProcessingEngine({ preference: enginePreference });
+  enginePromise.then(announceEngine).catch(error => {
+    els.engineStatus.textContent = 'Engine: unavailable';
+    setStatus(error?.message || String(error), true);
+  });
+  return enginePromise;
+}
+
+els.enginePreference.value = enginePreference;
+els.enginePreference.onchange = () => {
+  enginePreference = normalizeEnginePreference(els.enginePreference.value);
+  try { localStorage.setItem(ENGINE_PREFERENCE_KEY, enginePreference); } catch {}
+  loadEngine();
+};
+
 function updateSpectralInfo() {
-  const components = buildSpectralField({
+  if (!activeEngine) {
+    els.spectralInfo.textContent = 'Loading the deterministic processing engine…';
+    return;
+  }
+  const components = activeEngine.buildSpectralField({
     seed: els.seed.value || 'default',
     profile: els.profile.value,
     spectralDetail: Number(els.spectralDetail.value),
@@ -178,13 +211,20 @@ els.strengthDb.oninput = () => {
 els.strengthDb.onchange = () => syncStrengthFromValue(els.strengthDb.value || -32, 'number');
 syncStrengthFromValue(els.strength.value);
 updateSpectralInfo();
+loadEngine();
 
 els.recipe.onclick = async () => {
+  const engine = await enginePromise;
+  const sourceConfig = engine.defaultSourceSpectrumConfig;
   const recipe = {
     algorithmVersion: OUTPUT_RECIPE_VERSION,
-    environmentSynthVersion: ALGORITHM_VERSION,
-    sourceSpectrumNoiseVersion: SOURCE_SPECTRUM_NOISE_VERSION,
-    sourceComponentModelVersion: SOURCE_COMPONENT_MODEL_VERSION,
+    environmentSynthVersion: engine.algorithmVersion,
+    sourceSpectrumNoiseVersion: engine.sourceSpectrumNoiseVersion,
+    sourceComponentModelVersion: engine.sourceComponentModelVersion,
+    processingEnginePreference: enginePreference,
+    processingBackend: engine.backend,
+    engineAbiVersion: engine.abiVersion,
+    numericContractVersion: engine.numericContractVersion,
     seed: els.seed.value,
     environment: els.profile.value,
     relativeNoiseDb: Number(els.strength.value),
@@ -193,22 +233,27 @@ els.recipe.onclick = async () => {
     spectralDetail: Number(els.spectralDetail.value),
     sourceSpectrumNoise: {
       enabled: true,
-      powerShare: DEFAULT_SOURCE_SPECTRUM_POWER_SHARE,
-      analysisBands: DEFAULT_MULTI_COMPONENT_CONFIG.analysisBands,
-      componentRank: DEFAULT_MULTI_COMPONENT_CONFIG.componentRank,
-      maxComponents: DEFAULT_MULTI_COMPONENT_CONFIG.componentRank + 2,
-      frameMs: DEFAULT_MULTI_COMPONENT_CONFIG.frameMs,
+      powerShare: engine.defaultSourceSpectrumPowerShare,
+      analysisBands: sourceConfig.analysisBands,
+      componentRank: sourceConfig.componentRank,
+      maxComponents: sourceConfig.componentRank + 2,
+      frameMs: sourceConfig.frameMs,
       decomposition: 'soft-hpss+nmf',
       carrierMode: 'independent-per-component-band',
       stereoMode: 'component-covariance',
-      nmfIterations: DEFAULT_MULTI_COMPONENT_CONFIG.nmfIterations,
-      activationIterations: DEFAULT_MULTI_COMPONENT_CONFIG.activationIterations
+      nmfIterations: sourceConfig.nmfIterations,
+      activationIterations: sourceConfig.activationIterations
     },
     outputs: ['merged-media', 'noise-only-audio'],
     note: 'Same recipe + same source PCM + same implementation version reproduces the same synthesized noise. Audio noise-only WAV is the exact post-plan noise contribution used in the merged output. The source-spectrum model discovers latent spectral-temporal components; it does not claim semantic voice or music stems.'
   };
-  await navigator.clipboard.writeText(JSON.stringify(recipe, null, 2));
-  setStatus('Generation recipe copied to clipboard.');
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(recipe, null, 2));
+    setStatus('Generation recipe copied to clipboard.');
+  } catch (error) {
+    console.error(error);
+    setStatus('Clipboard access was unavailable. Allow clipboard access and try again.', true);
+  }
 };
 
 els.download.onclick = () => { if (lastMergedBlob) downloadBlob(lastMergedBlob, lastMergedName); };
@@ -225,9 +270,10 @@ els.generate.onclick = async () => {
   const scenePace = Number(els.scenePace.value);
   const spectralDetail = Number(els.spectralDetail.value);
   try {
+    const engine = await enginePromise;
     if (isVideo(selectedFile)) {
       setStatus('Exporting merged video and matching noise-only audio in real time. Keep this tab active.');
-      const { mixedBlob, noiseBlob, sceneCount, sceneSummary, spectralCount } = await exportVideoRealtime({ file: selectedFile, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
+      const { mixedBlob, noiseBlob, sceneCount, sceneSummary, spectralCount } = await exportVideoRealtime({ engine, file: selectedFile, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
       const base = selectedFile.name.replace(/\.[^.]+$/, '');
       lastMergedBlob = mixedBlob; lastMergedName = `${base}-noised.webm`;
       lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.webm`;
@@ -238,42 +284,42 @@ els.generate.onclick = async () => {
     } else {
       setStatus('Decoding and analyzing source…'); setProgress(0.08);
       const source = await decodeFileToPcm(selectedFile);
-      const sourceAnalysis = analyzePcm(source.channels, source.sampleRate);
+      const sourceAnalysis = engine.analyzePcm(source.channels, source.sampleRate);
       setStatus('Synthesizing deterministic environment…'); setProgress(0.25);
-      const synth = new EnvironmentalNoiseSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
+      const synth = engine.createEnvironmentSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
       const frames = Math.round(source.duration * source.sampleRate);
       const rawEnvironmental = synth.render(frames);
-      const sourceSpectrumNoise = await renderSourceSpectrumNoiseInWorker({
+      const sourceSpectrumNoise = await engine.renderSourceSpectrumNoise({
         channels: source.channels,
         sampleRate: source.sampleRate,
         seed,
-        config: DEFAULT_MULTI_COMPONENT_CONFIG,
+        config: engine.defaultSourceSpectrumConfig,
         onProgress: ({ value, message }) => {
           setStatus(message);
           setProgress(0.25 + value * 0.4);
         }
       });
-      const rawNoise = combineNoiseLayers(rawEnvironmental, sourceSpectrumNoise, DEFAULT_SOURCE_SPECTRUM_POWER_SHARE);
+      const rawNoise = engine.combineNoiseLayers(rawEnvironmental, sourceSpectrumNoise, engine.defaultSourceSpectrumPowerShare);
       const scenePlan = synth.scenePlan;
-      const noiseAnalysis = analyzePcm(rawNoise, source.sampleRate);
+      const noiseAnalysis = engine.analyzePcm(rawNoise, source.sampleRate);
       const spectralCount = synth.spectralComponents.length;
       setStatus('Planning level and creating merged + noise-only outputs…'); setProgress(0.72);
-      const plan = planNoiseGain(sourceAnalysis, noiseAnalysis, relativeDb, -1);
-      const mixed = mixPcm(source.channels, rawNoise, plan.noiseGainDb, plan.masterGainDb);
+      const plan = engine.planNoiseGain(sourceAnalysis, noiseAnalysis, relativeDb, -1);
+      const mixed = engine.mixPcm(source.channels, rawNoise, plan.noiseGainDb, plan.masterGainDb);
       // The merged signal applies masterGainDb after summing, so the exact noise contribution
       // present in the merged file is rawNoise * noiseGain * masterGain.
-      const noiseOnly = applyGainPcm(rawNoise, plan.noiseGainDb + plan.masterGainDb);
-      const outputAnalysis = analyzePcm(mixed, source.sampleRate);
-      const noiseOnlyAnalysis = analyzePcm(noiseOnly, source.sampleRate);
+      const noiseOnly = engine.applyGainPcm(rawNoise, plan.noiseGainDb + plan.masterGainDb);
+      const outputAnalysis = engine.analyzePcm(mixed, source.sampleRate);
+      const noiseOnlyAnalysis = engine.analyzePcm(noiseOnly, source.sampleRate);
       setStatus('Encoding WAV outputs…'); setProgress(0.92);
-      const mergedBlob = encodeWav16(mixed, source.sampleRate);
-      const noiseBlob = encodeWav16(noiseOnly, source.sampleRate);
+      const mergedBlob = engine.encodeWav16(mixed, source.sampleRate);
+      const noiseBlob = engine.encodeWav16(noiseOnly, source.sampleRate);
       const base = selectedFile.name.replace(/\.[^.]+$/, '');
       lastMergedBlob = mergedBlob; lastMergedName = `${base}-noised.wav`;
       lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.wav`;
       replacePlayer('result', 'audio', mergedBlob);
       replacePlayer('noise', 'audio', noiseBlob);
-      els.metrics.textContent = `Source robust ${fmt(sourceAnalysis.robustDb)} dBFS · Requested offset ${relativeDb.toFixed(1)} dB · ${DEFAULT_MULTI_COMPONENT_CONFIG.componentRank + 2} latent source-following layers · ${spectralCount} environmental frequency components · Noise output ${fmt(noiseOnlyAnalysis.rmsDb)} dBFS · Output peak ${fmt(outputAnalysis.peakDb)} dBFS · Safety trim ${fmt(plan.masterGainDb)} dB · ${scenePlan.length} regimes: ${summarizeSceneTimeline(scenePlan)}`;
+      els.metrics.textContent = `Source robust ${fmt(sourceAnalysis.robustDb)} dBFS · Requested offset ${relativeDb.toFixed(1)} dB · ${engine.defaultSourceSpectrumConfig.componentRank + 2} latent source-following layers · ${spectralCount} environmental frequency components · Noise output ${fmt(noiseOnlyAnalysis.rmsDb)} dBFS · Output peak ${fmt(outputAnalysis.peakDb)} dBFS · Safety trim ${fmt(plan.masterGainDb)} dB · ${scenePlan.length} regimes: ${engine.summarizeSceneTimeline(scenePlan)}`;
       setProgress(1); setStatus('Audio export complete. Both merged media and exact noise-only WAV are ready.');
     }
     els.download.disabled = false;

@@ -16,6 +16,7 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
 - Exports a separately previewable/downloadable noise-only track.
 - For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
+- Uses one backend-neutral processing-engine API. Automatic mode probes the committed Wasm core and safely falls back to the JavaScript reference path until the full Wasm DSP pipeline passes parity gates.
 
 ## Privacy
 
@@ -30,7 +31,7 @@ The web app processes the selected file locally with browser APIs. The source me
 5. Select **Generate outputs**.
 6. Preview or download the merged media and the noise-only track.
 
-For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version, source-spectrum noise version, and component-model version separately. The source file still affects the component model and final source-relative gain plan.
+For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version, source-spectrum noise version, component-model version, resolved backend, ABI version, and numeric-contract version separately. The source file still affects the component model and final source-relative gain plan.
 
 ## Install on a phone
 
@@ -58,6 +59,12 @@ npm test
 ```
 
 The video path uses `HTMLVideoElement.captureStream()` and `MediaRecorder`, so current Chromium-based browsers are recommended for video export. Audio support follows the browser's `decodeAudioData()` support.
+
+### Wasm development status
+
+The repository includes a pinned Rust toolchain and a committed `wasm/driftbed_core.wasm` artifact. The current artifact validates the shared ABI, numeric contract, deterministic self-test, and scalar PCM boundary, but it intentionally does not claim the complete DSP pipeline. Automatic mode therefore preserves the JavaScript reference backend. Use the **WebAssembly (experimental)** setting only when testing the staged core; it reports a visible error instead of silently changing output semantics.
+
+The build contract is documented in [`rust/BUILD.md`](rust/BUILD.md). The Wasm binary is built without third-party crates and is cached by the service worker for installed/offline launches.
 
 ## How it works
 

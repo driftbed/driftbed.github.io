@@ -1,5 +1,3 @@
-import { EnvironmentalNoiseSynth, summarizeSceneTimeline } from './synth.js';
-
 function createRecorder(stream, candidates) {
   const mimeType = candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
   const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -15,7 +13,8 @@ function createRecorder(stream, candidates) {
 // Self-contained Chromium-oriented video path.
 // It records the source video track with a Web Audio mixed audio track in real time,
 // and simultaneously records the exact post-gain synthesized noise path as audio-only WebM.
-export async function exportVideoRealtime({ file, seed, profile, variation, scenePace = 0.55, spectralDetail = 0.62, relativeDb, onProgress = () => {} }) {
+export async function exportVideoRealtime({ engine, file, seed, profile, variation, scenePace = 0.55, spectralDetail = 0.62, relativeDb, onProgress = () => {} }) {
+  if (!engine) throw new Error('A processing engine is required for video export.');
   const video = document.createElement('video');
   video.src = URL.createObjectURL(file);
   video.preload = 'auto';
@@ -40,7 +39,7 @@ export async function exportVideoRealtime({ file, seed, profile, variation, scen
 
   // Measure a deterministic short segment of the raw synthetic bed so the realtime
   // path can target a source-relative level rather than an arbitrary absolute gain.
-  const calibration = new EnvironmentalNoiseSynth({ seed, sampleRate: ctx.sampleRate, durationSeconds: video.duration, profile, variation, scenePace, spectralDetail });
+  const calibration = engine.createEnvironmentSynth({ seed, sampleRate: ctx.sampleRate, durationSeconds: video.duration, profile, variation, scenePace, spectralDetail });
   const calibrationFrames = Math.max(1, Math.min(Math.round(ctx.sampleRate * 1.5), Math.round(ctx.sampleRate * video.duration)));
   const [calL, calR] = calibration.render(calibrationFrames);
   let calSq = 0;
@@ -51,7 +50,7 @@ export async function exportVideoRealtime({ file, seed, profile, variation, scen
   noiseGain.gain.value = initialNoiseRms / rawNoiseRms;
 
   const processor = ctx.createScriptProcessor(2048, 0, 2);
-  const synth = new EnvironmentalNoiseSynth({ seed, sampleRate: ctx.sampleRate, durationSeconds: video.duration, profile, variation, scenePace, spectralDetail });
+  const synth = engine.createEnvironmentSynth({ seed, sampleRate: ctx.sampleRate, durationSeconds: video.duration, profile, variation, scenePace, spectralDetail });
   processor.onaudioprocess = e => {
     const l = e.outputBuffer.getChannelData(0);
     const r = e.outputBuffer.getChannelData(1);
@@ -118,5 +117,5 @@ export async function exportVideoRealtime({ file, seed, profile, variation, scen
   src.disconnect();
   await ctx.close();
   URL.revokeObjectURL(video.src);
-  return { mixedBlob, noiseBlob, sceneCount: synth.scenePlan.length, sceneSummary: summarizeSceneTimeline(synth.scenePlan), spectralCount: synth.spectralComponents.length };
+  return { mixedBlob, noiseBlob, sceneCount: synth.scenePlan.length, sceneSummary: engine.summarizeSceneTimeline(synth.scenePlan), spectralCount: synth.spectralComponents.length };
 }

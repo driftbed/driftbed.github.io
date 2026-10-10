@@ -1,14 +1,20 @@
-# Architecture — output recipe v5
+# Architecture — output recipe v6 and dual backend foundation
 
 ## Deterministic identity
 
-The v5 audio output identity is:
+The v6 audio output identity is:
 
-`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
+`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + processingBackend + engineAbiVersion + numericContractVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
 
 The environment synthesizer remains algorithm v3. Audio source analysis drives the v2 multi-component source-spectrum model and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
 
-Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 5 adds the separate audio-only multi-component source-spectrum layer without modifying `EnvironmentalNoiseSynth`.
+Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 6 records the resolved processing backend and contract versions in addition to the separate audio-only multi-component source-spectrum layer. These metadata changes do not modify `EnvironmentalNoiseSynth`.
+
+## Processing engine boundary
+
+The application imports one public engine factory from `src/engine/engine.js`. The JavaScript backend wraps the validated implementation modules, including the current module-worker source-spectrum renderer and the browser-native video path. Automatic selection attempts the committed Wasm core first; if the core is unavailable, fails its ABI/numeric/self-test checks, or does not advertise the full DSP capability, it records the reason and falls back to JavaScript. A forced Wasm selection fails visibly instead of silently changing output semantics.
+
+The Rust module in `rust/` is the first staged Wasm boundary. It uses no third-party crates, keeps raw-pointer handling inside `rust/src/abi.rs`, exposes a versioned ABI, and currently advertises only the validated scalar foundation capability. The full pipeline capability is intentionally reserved until browser parity, determinism, boundary, and performance checks pass. `rust/BUILD.md` is the reproducible build contract and `tests/wasm.test.mjs` tests the committed artifact directly.
 
 ## Timeline dataset
 

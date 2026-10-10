@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.7.0 — Wasm-first backend foundation
+
+- Added a pinned, dependency-free Rust `wasm32-unknown-unknown` build with a versioned ABI, numeric contract, deterministic self-test, and checked scalar PCM functions.
+- Added one backend-neutral processing-engine API with automatic WebAssembly preference, explicit JavaScript reference selection, and visible forced-Wasm failure when the complete Wasm DSP pipeline is not yet available.
+- Routed audio and video generation through the shared engine API while preserving the validated JavaScript renderer and all existing golden fixtures.
+- Added engine backend, ABI, and numeric-contract metadata to copied recipes.
+- Added direct Node tests for the committed Wasm binary and refreshed the versioned PWA shell to cache it offline.
+
 ## v1.6.0 — multi-component source-spectrum audio model
 
 - Added a 24-band, 20 ms source analysis timeline with soft sustained, transient, and diffuse masks.

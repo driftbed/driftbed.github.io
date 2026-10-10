@@ -1,25 +1,30 @@
-const CACHE_NAME = 'driftbed-shell-v1.6.0';
+const CACHE_NAME = 'driftbed-shell-v1.7.0';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/styles.css',
   '/manifest.webmanifest',
-  '/src/app.js?v=1.6.0',
+  '/src/app.js?v=1.7.0',
   '/src/audio-io.js',
   '/src/distribution.js',
-  '/src/loudness.js?v=1.6.0',
+  '/src/loudness.js?v=1.7.0',
   '/src/profiles.js',
   '/src/random.js',
   '/src/synth.js',
-  '/src/multi-component-spectrum-noise.js?v=1.6.0',
+  '/src/multi-component-spectrum-noise.js?v=1.7.0',
   '/src/nonnegative-factorization.js',
   '/src/source-component-analysis.js',
-  '/src/source-spectrum-worker.js?v=1.6.0',
+  '/src/source-spectrum-worker.js?v=1.7.0',
+  '/src/engine/engine.js?v=1.7.0',
+  '/src/engine/javascript-backend.js?v=1.7.0',
+  '/src/engine/wasm-backend.js?v=1.7.0',
+  '/src/engine/wasm-loader.js?v=1.7.0',
   '/src/video-export.js',
   '/src/wav.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png'
+  '/icons/apple-touch-icon.png',
+  '/wasm/driftbed_core.wasm'
 ];
 
 self.addEventListener('install', event => {
