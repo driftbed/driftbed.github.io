@@ -1,4 +1,4 @@
-import { createProcessingEngine } from '../engine/engine.js?v=1.7.0';
+import { createProcessingEngine } from '../engine/engine.js?v=1.9.0';
 import { FULL_PIPELINE_CAPABILITY, loadWasmCore } from '../engine/wasm-loader.js?v=1.7.0';
 
 export const BENCHMARK_PROTOCOL_VERSION = 1;
@@ -11,6 +11,7 @@ export const BENCHMARK_DEFINITIONS = Object.freeze([
   { id: 'sourceAnalysis', tier: 'source', title: 'Source-component analysis', description: 'Structural source analysis before factorization.' },
   { id: 'nmf', tier: 'source', title: 'NMF factorization', description: 'Latent spectral component factorization.' },
   { id: 'sourceNoiseRendering', tier: 'source', title: 'Source-spectrum rendering', description: 'Multi-component source-following noise rendering.' },
+  { id: 'sourceDriftRendering', tier: 'source', title: 'Source-coupled phase drift', description: 'Bounded coherent phase-shadow rendering from the source.' },
   { id: 'completeAudioPipeline', tier: 'production', title: 'Complete Driftbed audio pipeline', description: 'The backend-neutral production audio workload.' }
 ]);
 
@@ -28,6 +29,7 @@ export function describeBenchmarkCapabilities({ wasmCore = null, wasmError = '' 
     sourceAnalysis: fullPipeline,
     nmf: fullPipeline,
     sourceNoiseRendering: fullPipeline,
+    sourceDriftRendering: fullPipeline,
     completeAudioPipeline: fullPipeline
   });
   return Object.freeze({

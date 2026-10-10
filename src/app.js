@@ -1,9 +1,9 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
 import { decodeFileToPcm, downloadBlob } from './audio-io.js';
 import { exportVideoRealtime } from './video-export.js';
-import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.7.0';
+import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.9.0';
 
-const OUTPUT_RECIPE_VERSION = 6;
+const OUTPUT_RECIPE_VERSION = 7;
 
 const $ = s => document.querySelector(s);
 const els = {
@@ -221,6 +221,7 @@ els.recipe.onclick = async () => {
     environmentSynthVersion: engine.algorithmVersion,
     sourceSpectrumNoiseVersion: engine.sourceSpectrumNoiseVersion,
     sourceComponentModelVersion: engine.sourceComponentModelVersion,
+    sourceDriftVersion: engine.sourceDriftVersion,
     processingEnginePreference: enginePreference,
     processingBackend: engine.backend,
     engineAbiVersion: engine.abiVersion,
@@ -244,8 +245,17 @@ els.recipe.onclick = async () => {
       nmfIterations: sourceConfig.nmfIterations,
       activationIterations: sourceConfig.activationIterations
     },
+    sourceDrift: {
+      ...engine.defaultSourceDriftConfig,
+      enabled: true,
+      targetPowerShare: engine.defaultSourceDriftConfig.targetPowerShare,
+      normalWetBudget: engine.defaultSourceDriftConfig.normalWetBudget,
+      absoluteWetCeiling: engine.defaultSourceDriftConfig.absoluteWetCeiling,
+      voiceCount: engine.defaultSourceDriftConfig.voiceCount,
+      feedback: 0
+    },
     outputs: ['merged-media', 'noise-only-audio'],
-    note: 'Same recipe + same source PCM + same implementation version reproduces the same synthesized noise. Audio noise-only WAV is the exact post-plan noise contribution used in the merged output. The source-spectrum model discovers latent spectral-temporal components; it does not claim semantic voice or music stems.'
+    note: 'Same recipe + same source PCM + same implementation version reproduces the same synthesized noise. Audio noise-only WAV is the exact post-plan stochastic noise plus source-coupled drift contribution used in the merged output. The source-spectrum model discovers latent spectral-temporal components; it does not claim semantic voice or music stems.'
   };
   try {
     await navigator.clipboard.writeText(JSON.stringify(recipe, null, 2));
@@ -289,26 +299,34 @@ els.generate.onclick = async () => {
       const synth = engine.createEnvironmentSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
       const frames = Math.round(source.duration * source.sampleRate);
       const rawEnvironmental = synth.render(frames);
-      const sourceSpectrumNoise = await engine.renderSourceSpectrumNoise({
+      const sourceDerived = await engine.renderSourceDerivedLayers({
         channels: source.channels,
         sampleRate: source.sampleRate,
         seed,
         config: engine.defaultSourceSpectrumConfig,
+        driftConfig: engine.defaultSourceDriftConfig,
         onProgress: ({ value, message }) => {
           setStatus(message);
           setProgress(0.25 + value * 0.4);
         }
       });
+      const sourceSpectrumNoise = sourceDerived.sourceSpectrumNoise;
+      const sourceDrift = sourceDerived.sourceDrift;
       const rawNoise = engine.combineNoiseLayers(rawEnvironmental, sourceSpectrumNoise, engine.defaultSourceSpectrumPowerShare);
       const scenePlan = synth.scenePlan;
-      const noiseAnalysis = engine.analyzePcm(rawNoise, source.sampleRate);
       const spectralCount = synth.spectralComponents.length;
       setStatus('Planning level and creating merged + noise-only outputs…'); setProgress(0.72);
-      const plan = engine.planNoiseGain(sourceAnalysis, noiseAnalysis, relativeDb, -1);
-      const mixed = engine.mixPcm(source.channels, rawNoise, plan.noiseGainDb, plan.masterGainDb);
-      // The merged signal applies masterGainDb after summing, so the exact noise contribution
-      // present in the merged file is rawNoise * noiseGain * masterGain.
-      const noiseOnly = engine.applyGainPcm(rawNoise, plan.noiseGainDb + plan.masterGainDb);
+      const plan = engine.planCompositeAddedSignal({
+        sourceChannels: source.channels,
+        independentNoiseChannels: rawNoise,
+        driftChannels: sourceDrift,
+        sourceAnalysis,
+        relativeDb,
+        driftPowerShare: engine.defaultSourceDriftConfig.targetPowerShare,
+        outputCeilingDb: -1
+      });
+      const mixed = engine.mixCompositePcm(source.channels, rawNoise, sourceDrift, plan);
+      const noiseOnly = engine.renderCompositeNoiseOnly(rawNoise, sourceDrift, plan);
       const outputAnalysis = engine.analyzePcm(mixed, source.sampleRate);
       const noiseOnlyAnalysis = engine.analyzePcm(noiseOnly, source.sampleRate);
       setStatus('Encoding WAV outputs…'); setProgress(0.92);
@@ -319,7 +337,8 @@ els.generate.onclick = async () => {
       lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.wav`;
       replacePlayer('result', 'audio', mergedBlob);
       replacePlayer('noise', 'audio', noiseBlob);
-      els.metrics.textContent = `Source robust ${fmt(sourceAnalysis.robustDb)} dBFS · Requested offset ${relativeDb.toFixed(1)} dB · ${engine.defaultSourceSpectrumConfig.componentRank + 2} latent source-following layers · ${spectralCount} environmental frequency components · Noise output ${fmt(noiseOnlyAnalysis.rmsDb)} dBFS · Output peak ${fmt(outputAnalysis.peakDb)} dBFS · Safety trim ${fmt(plan.masterGainDb)} dB · ${scenePlan.length} regimes: ${engine.summarizeSceneTimeline(scenePlan)}`;
+      const driftStatus = plan.driftGainDb === -Infinity ? 'drift muted' : `drift ${fmt(plan.driftPowerShare * 100, 0)}% power / ${fmt(plan.driftGainDb)} dB gain`;
+      els.metrics.textContent = `Source robust ${fmt(sourceAnalysis.robustDb)} dBFS · Requested offset ${relativeDb.toFixed(1)} dB · ${engine.defaultSourceSpectrumConfig.componentRank + 2} latent source-following layers + source-coupled drift · ${spectralCount} environmental frequency components · ${driftStatus} · Noise output ${fmt(noiseOnlyAnalysis.rmsDb)} dBFS · Output peak ${fmt(outputAnalysis.peakDb)} dBFS · Safety trim ${fmt(plan.masterGainDb)} dB · ${scenePlan.length} regimes: ${engine.summarizeSceneTimeline(scenePlan)}`;
       setProgress(1); setStatus('Audio export complete. Both merged media and exact noise-only WAV are ready.');
     }
     els.download.disabled = false;

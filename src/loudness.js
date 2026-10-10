@@ -90,6 +90,128 @@ function rmsPower(channels) {
   return Math.sqrt(sum / Math.max(1, frames * channels.length));
 }
 
+function meanSquare(channels) {
+  if (!channels?.length || !channels[0]?.length) return 0;
+  let sum = 0;
+  const frames = channels[0].length;
+  for (let i = 0; i < frames; i++) {
+    for (const channel of channels) {
+      const value = channel[i] || 0;
+      sum += value * value;
+    }
+  }
+  return sum / Math.max(1, frames * channels.length);
+}
+
+function meanCrossPower(leftChannels, rightChannels) {
+  if (!leftChannels?.length || !rightChannels?.length || !leftChannels[0]?.length || !rightChannels[0]?.length) return 0;
+  const frames = Math.min(leftChannels[0].length, rightChannels[0].length);
+  const channels = Math.max(leftChannels.length, rightChannels.length);
+  let sum = 0;
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < channels; c++) {
+      const left = leftChannels[Math.min(c, leftChannels.length - 1)]?.[i] || 0;
+      const right = rightChannels[Math.min(c, rightChannels.length - 1)]?.[i] || 0;
+      sum += left * right;
+    }
+  }
+  return sum / Math.max(1, frames * channels);
+}
+
+const gainToDb = value => value > EPS ? 20 * Math.log10(value) : -Infinity;
+
+/** Plan the total additive level while keeping coherent source drift downward-only. */
+export function planCompositeAddedSignal({
+  sourceChannels,
+  independentNoiseChannels,
+  driftChannels,
+  sourceAnalysis,
+  relativeDb = -27,
+  driftPowerShare = 0.08,
+  outputCeilingDb = -1
+} = {}) {
+  const desiredAddedDb = sourceAnalysis.robustDb + relativeDb;
+  const desiredPower = gain(desiredAddedDb) ** 2;
+  const requestedShare = Math.max(0, Math.min(1, Number(driftPowerShare) || 0));
+  const rawDriftPower = meanSquare(driftChannels);
+  const rawNoisePower = meanSquare(independentNoiseChannels);
+  const desiredDriftPower = desiredPower * requestedShare;
+  const driftLinearGain = rawDriftPower > EPS ? Math.min(1, Math.sqrt(desiredDriftPower / rawDriftPower)) : 0;
+  const fixedDriftPower = rawDriftPower * driftLinearGain * driftLinearGain;
+  const crossPower = meanCrossPower(independentNoiseChannels, driftChannels);
+  const quadraticA = rawNoisePower;
+  const quadraticB = 2 * crossPower * driftLinearGain;
+  const quadraticC = fixedDriftPower - desiredPower;
+  let noiseLinearGain = 0;
+  if (quadraticA > EPS) {
+    const discriminant = Math.max(0, quadraticB * quadraticB - 4 * quadraticA * quadraticC);
+    const root = (-quadraticB + Math.sqrt(discriminant)) / (2 * quadraticA);
+    noiseLinearGain = Math.max(0, Number.isFinite(root) ? root : 0);
+  }
+
+  const outputChannels = Math.max(2, sourceChannels?.length || 0, independentNoiseChannels?.length || 0, driftChannels?.length || 0);
+  const frames = sourceChannels?.[0]?.length || independentNoiseChannels?.[0]?.length || driftChannels?.[0]?.length || 0;
+  let predictedPeak = 0;
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < outputChannels; c++) {
+      const source = sourceChannels?.[Math.min(c, (sourceChannels?.length || 1) - 1)]?.[i] || 0;
+      const noise = independentNoiseChannels?.[Math.min(c, (independentNoiseChannels?.length || 1) - 1)]?.[i] || 0;
+      const drift = driftChannels?.[Math.min(c, (driftChannels?.length || 1) - 1)]?.[i] || 0;
+      predictedPeak = Math.max(predictedPeak, Math.abs(source + noise * noiseLinearGain + drift * driftLinearGain));
+    }
+  }
+  const ceiling = gain(outputCeilingDb);
+  const masterGainDb = predictedPeak > ceiling && predictedPeak > EPS ? 20 * Math.log10(ceiling / predictedPeak) : 0;
+  return {
+    desiredAddedDb,
+    relativeDb,
+    driftPowerShare: requestedShare,
+    rawDriftPower,
+    rawNoisePower,
+    crossPower,
+    driftGainDb: gainToDb(driftLinearGain),
+    noiseGainDb: gainToDb(noiseLinearGain),
+    masterGainDb,
+    predictedPeak,
+    outputCeilingDb
+  };
+}
+
+export function mixCompositePcm(sourceChannels, independentNoiseChannels, driftChannels, plan) {
+  const frames = sourceChannels?.[0]?.length || independentNoiseChannels?.[0]?.length || driftChannels?.[0]?.length || 0;
+  const outputChannels = Math.max(2, sourceChannels?.length || 0, independentNoiseChannels?.length || 0, driftChannels?.length || 0);
+  const out = Array.from({ length: outputChannels }, () => new Float32Array(frames));
+  const noiseGain = gain(plan.noiseGainDb);
+  const driftGain = gain(plan.driftGainDb);
+  const masterGain = gain(plan.masterGainDb);
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < outputChannels; c++) {
+      const source = sourceChannels?.[Math.min(c, (sourceChannels?.length || 1) - 1)]?.[i] || 0;
+      const noise = independentNoiseChannels?.[Math.min(c, (independentNoiseChannels?.length || 1) - 1)]?.[i] || 0;
+      const drift = driftChannels?.[Math.min(c, (driftChannels?.length || 1) - 1)]?.[i] || 0;
+      out[c][i] = Math.max(-1, Math.min(1, (source + noise * noiseGain + drift * driftGain) * masterGain));
+    }
+  }
+  return out;
+}
+
+export function renderCompositeNoiseOnly(independentNoiseChannels, driftChannels, plan) {
+  const frames = independentNoiseChannels?.[0]?.length || driftChannels?.[0]?.length || 0;
+  const outputChannels = Math.max(2, independentNoiseChannels?.length || 0, driftChannels?.length || 0);
+  const out = Array.from({ length: outputChannels }, () => new Float32Array(frames));
+  const noiseGain = gain(plan.noiseGainDb);
+  const driftGain = gain(plan.driftGainDb);
+  const masterGain = gain(plan.masterGainDb);
+  for (let i = 0; i < frames; i++) {
+    for (let c = 0; c < outputChannels; c++) {
+      const noise = independentNoiseChannels?.[Math.min(c, (independentNoiseChannels?.length || 1) - 1)]?.[i] || 0;
+      const drift = driftChannels?.[Math.min(c, (driftChannels?.length || 1) - 1)]?.[i] || 0;
+      out[c][i] = Math.max(-1, Math.min(1, (noise * noiseGain + drift * driftGain) * masterGain));
+    }
+  }
+  return out;
+}
+
 /** Combine independent raw noise layers by power share before total-noise gain planning. */
 export function combineNoiseLayers(environmentChannels, sourceSpectrumChannels, sourcePowerShare = 0.35) {
   const frames = environmentChannels?.[0]?.length || sourceSpectrumChannels?.[0]?.length || 0;

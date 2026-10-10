@@ -1,8 +1,8 @@
-import { DRIFTBED_VERSION } from '../build-version.js?v=1.8.2';
-import { BENCHMARK_DEFINITIONS, discoverBenchmarkCapabilities } from './benchmark-capabilities.js?v=1.8.2';
-import { BENCHMARK_PRESETS, createBenchmarkConfig, runBenchmark } from './benchmark-runner.js?v=1.8.2';
-import { comparisonLabel, stabilityLabel } from './benchmark-statistics.js?v=1.8.2';
-import { buildEnvironmentMetadata, formatReportText, serializeReport } from './benchmark-report.js?v=1.8.2';
+import { DRIFTBED_VERSION } from '../build-version.js?v=1.9.0';
+import { BENCHMARK_DEFINITIONS, discoverBenchmarkCapabilities } from './benchmark-capabilities.js?v=1.9.0';
+import { BENCHMARK_PRESETS, createBenchmarkConfig, runBenchmark } from './benchmark-runner.js?v=1.9.0';
+import { comparisonLabel, stabilityLabel } from './benchmark-statistics.js?v=1.9.0';
+import { buildEnvironmentMetadata, formatReportText, serializeReport } from './benchmark-report.js?v=1.9.0';
 
 const $ = selector => document.querySelector(selector);
 const els = {

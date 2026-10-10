@@ -1,11 +1,39 @@
-import { renderMultiComponentSourceSpectrumNoise } from './multi-component-spectrum-noise.js?v=1.6.0';
+import { renderMultiComponentSourceSpectrumNoise, renderSourceDerivedLayers } from './multi-component-spectrum-noise.js?v=1.9.0';
 
 self.onmessage = event => {
   const data = event.data || {};
-  if (data.type !== 'render') return;
+  if (data.type !== 'render' && data.type !== 'renderDerived') return;
   try {
     const left = new Float32Array(data.left);
     const right = data.right ? new Float32Array(data.right) : null;
+    if (data.type === 'renderDerived') {
+      const result = renderSourceDerivedLayers({
+        channels: right ? [left, right] : [left],
+        sampleRate: data.sampleRate,
+        seed: data.seed,
+        config: data.config,
+        driftConfig: data.driftConfig,
+        onProgress: progress => self.postMessage({ type: 'progress', ...progress })
+      });
+      const outputLeft = result.sourceSpectrumNoise[0];
+      const outputRight = result.sourceSpectrumNoise[1];
+      const driftLeft = result.sourceDrift[0];
+      const driftRight = result.sourceDrift[1];
+      const transfer = [left.buffer, outputLeft.buffer, outputRight.buffer, driftLeft.buffer, driftRight.buffer];
+      if (right) transfer.push(right.buffer);
+      self.postMessage({
+        type: 'derivedResult',
+        sourceLeft: left.buffer,
+        sourceRight: right?.buffer || null,
+        outputLeft: outputLeft.buffer,
+        outputRight: outputRight.buffer,
+        driftLeft: driftLeft.buffer,
+        driftRight: driftRight.buffer,
+        driftDiagnostics: result.driftDiagnostics,
+        sourceDriftVersion: result.sourceDriftVersion
+      }, transfer);
+      return;
+    }
     const result = renderMultiComponentSourceSpectrumNoise({
       channels: right ? [left, right] : [left],
       sampleRate: data.sampleRate,

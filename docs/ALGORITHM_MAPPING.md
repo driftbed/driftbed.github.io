@@ -1,6 +1,6 @@
-# Mapping the Generalized Deterministic Dataset Algorithm to Audio v6
+# Mapping the Generalized Deterministic Dataset Algorithm to Audio v7
 
-Version 5 treats both **time** and **frequency** as deterministic synthetic datasets and adds a deterministic multi-component source-spectrum stochastic layer for offline audio. The existing environmental synthesizer remains version 3.
+Version 7 treats both **time** and **frequency** as deterministic synthetic datasets and adds a deterministic multi-component source-spectrum stochastic layer plus a bounded source-coupled phase-drift layer for offline audio. The existing environmental synthesizer remains version 3.
 
 ## 1. Timeline objects
 
@@ -173,4 +173,4 @@ The raw source-following layer is normalized once and combined with the normaliz
 
 `rawNoise = sqrt(1 - q) × environment + sqrt(q) × sourceSpectrum`
 
-with `q = 0.35` in the current recipe. The v6 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 2`, `sourceComponentModelVersion = 1`, `processingBackend`, `engineAbiVersion`, `numericContractVersion`, and `algorithmVersion = 6` so the stable environmental contract, backend contract, and new audio layer can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.
+with `q = 0.35` in the current recipe. The source-coupled drift layer is then rendered from the same analyzed source model with three fixed delay families, convex fractional-delay transitions, bounded coherent wet gain, and source-aware stereo control. Its gain is planned separately from the independent noise and is never RMS-normalized. The v7 recipe records `environmentSynthVersion = 3`, `sourceSpectrumNoiseVersion = 2`, `sourceComponentModelVersion = 1`, `sourceDriftVersion = 1`, `processingBackend`, `engineAbiVersion`, `numericContractVersion`, and `algorithmVersion = 7` so the stable environmental contract, backend contract, and source-derived layers can evolve independently. The realtime video implementation remains on the v3 environment-only path until an equivalent streaming integration is validated.

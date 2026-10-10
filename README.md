@@ -16,6 +16,7 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
 - Exports a separately previewable/downloadable noise-only track.
 - For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
+- For offline audio, adds a bounded source-coupled phase-drift layer with fixed fractional delays and convex crossfades. Its coherent gain is budgeted separately so it cannot turn into feedback, flanging, pitch wobble, or a dominant comb-filter effect.
 - Uses one backend-neutral processing-engine API. Automatic mode probes the committed Wasm core and safely falls back to the JavaScript reference path until the full Wasm DSP pipeline passes parity gates.
 - Includes a capability-aware [engine benchmark](benchmark.html) for the shared kernels currently implemented by both backends. It reports the staged Wasm foundation honestly and does not claim a full-pipeline speedup before that pipeline exists and passes parity checks.
 
@@ -32,7 +33,7 @@ The web app processes the selected file locally with browser APIs. The source me
 5. Select **Generate outputs**.
 6. Preview or download the merged media and the noise-only track.
 
-To compare the available processing kernels, open [Benchmark engines](benchmark.html). The benchmark uses a deterministic stereo fixture, correctness checks before timing, warmups, interleaved runs, robust timing summaries, and a worker so the page remains responsive. Unsupported Wasm capabilities are shown as unavailable rather than being timed as a misleading JavaScript-only comparison.
+To compare the available processing kernels, open [Benchmark engines](benchmark.html). The benchmark uses a deterministic stereo fixture, correctness checks before timing, warmups, interleaved runs, robust timing summaries, and a worker so the page remains responsive. Unsupported Wasm capabilities, including source-coupled drift until Wasm parity exists, are shown as unavailable rather than being timed as a misleading JavaScript-only comparison.
 
 For the same output recipe version, seed, environment, duration, sample rate, and control values, the generated raw background is reproducible. Audio recipes record the preserved environment synthesizer version, source-spectrum noise version, component-model version, resolved backend, ABI version, and numeric-contract version separately. The source file still affects the component model and final source-relative gain plan.
 
@@ -76,8 +77,9 @@ The synthesis engine combines deterministic layers:
 1. A timeline of weighted acoustic regimes, smoothly crossfaded over the media duration.
 2. An independently seeded spectral field whose components have their own frequency, magnitude, phase, stereo offset, and slow drift.
 3. For offline audio, a multi-component source-spectrum layer: a 24-band, 20 ms analysis timeline estimates source power and stereo covariance; soft time/frequency median masks separate sustained, transient, and diffuse structure; deterministic KL-NMF discovers four sustained latent templates; and exact ratio masks partition measured source power among those components. Each component has independent filtered carriers, component-level modulation, temporal behavior, and stereo covariance.
+4. For offline audio, a source-coupled phase-drift layer reuses that analysis to control three bounded fixed-delay voices. Linear fractional-delay reads, convex delay transitions, fixed allpass diffusion, and source-aware stereo offsets provide a quiet phase shadow without a feedback loop or delay-line adaptation.
 
-The environmental synthesizer remains algorithm v3, preserving its golden PCM contract. Audio output recipe v5 combines normalized environmental and multi-component source-spectrum layers by an explicit power share before the existing source-relative gain plan. The result remains controlled and reproducible beneath speech, music, video, or other foreground media. The current realtime video path remains on the validated environment-only path until an equivalent streaming integration is tested there.
+The environmental synthesizer remains algorithm v3, preserving its golden PCM contract. Audio output recipe v7 combines normalized environmental and multi-component source-spectrum layers, then plans the source-coupled drift contribution separately with a finite cross-term and exact peak scan. The result remains controlled and reproducible beneath speech, music, video, or other foreground media. The current realtime video path remains on the validated environment-only path until an equivalent streaming integration is tested there.
 
 ## Repository layout
 

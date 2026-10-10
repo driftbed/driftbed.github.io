@@ -15,8 +15,12 @@ test('JavaScript backend exposes the shared engine contract', async () => {
   assert.equal(engine.abiVersion, 1);
   assert.equal(engine.numericContractVersion, 1);
   assert.equal(engine.capabilities.fullPipeline, true);
+  assert.equal(engine.capabilities.sourceDerivedLayers, true);
+  assert.equal(engine.sourceDriftVersion, 1);
   assert.equal(typeof engine.createEnvironmentSynth, 'function');
   assert.equal(typeof engine.renderSourceSpectrumNoise, 'function');
+  assert.equal(typeof engine.renderSourceDerivedLayers, 'function');
+  assert.equal(typeof engine.planCompositeAddedSignal, 'function');
 });
 
 test('automatic selection falls back safely outside a browser', async () => {

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { deriveSeed, Mulberry32 } from '../src/random.js';
 import { exactWeightedCounts, permuteIndex } from '../src/distribution.js';
 import { EnvironmentalNoiseSynth, buildSpectralField, SPECTRAL_AMPLITUDE_WEIGHTS } from '../src/synth.js';
-import { analyzePcm, planNoiseGain, applyGainPcm, combineNoiseLayers } from '../src/loudness.js';
+import { analyzePcm, planNoiseGain, planCompositeAddedSignal, mixCompositePcm, renderCompositeNoiseOnly, applyGainPcm, combineNoiseLayers } from '../src/loudness.js';
 
 test('domain-separated seeds are stable and distinct', () => {
   assert.equal(deriveSeed('abc', 5, 'content'), deriveSeed('abc', 5, 'content'));
@@ -96,6 +96,31 @@ test('source-spectrum power share is applied before total-noise planning', () =>
   const sourceRms = Math.sqrt(sourceOnly[0].reduce((sum, x) => sum + x * x, 0) / 4);
   assert.ok(Math.abs(environmentRms - 1) < 1e-6);
   assert.ok(Math.abs(sourceRms - 1) < 1e-6);
+});
+
+test('composite planner keeps coherent drift downward-only and preserves exact contribution', () => {
+  const source = [new Float32Array([0.08, -0.12, 0.16, -0.1]), new Float32Array([0.07, -0.1, 0.15, -0.08])];
+  const noise = [new Float32Array([0.4, -0.3, 0.2, -0.1]), new Float32Array([0.35, -0.28, 0.18, -0.08])];
+  const drift = [new Float32Array([0.06, -0.04, 0.03, -0.02]), new Float32Array([0.05, -0.035, 0.025, -0.015])];
+  const plan = planCompositeAddedSignal({
+    sourceChannels: source,
+    independentNoiseChannels: noise,
+    driftChannels: drift,
+    sourceAnalysis: { robustDb: -20, peakDb: -3 },
+    relativeDb: -32,
+    driftPowerShare: 0.08,
+    outputCeilingDb: -1
+  });
+  assert.ok(plan.driftGainDb <= 0, `drift gain must not increase the coherent layer: ${plan.driftGainDb}`);
+  const merged = mixCompositePcm(source, noise, drift, plan);
+  const noiseOnly = renderCompositeNoiseOnly(noise, drift, plan);
+  const master = 10 ** (plan.masterGainDb / 20);
+  const sourceMaster = 10 ** (plan.masterGainDb / 20);
+  for (let c = 0; c < merged.length; c++) {
+    for (let i = 0; i < merged[c].length; i++) {
+      assert.ok(Math.abs(merged[c][i] - (source[c][i] * sourceMaster + noiseOnly[c][i])) < 1e-6);
+    }
+  }
 });
 
 test('timeline uses exact weighted scene quotas with deterministic permutation', async () => {

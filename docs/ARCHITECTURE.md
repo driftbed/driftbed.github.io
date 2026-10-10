@@ -1,14 +1,14 @@
-# Architecture — output recipe v6 and dual backend foundation
+# Architecture — output recipe v7 and dual backend foundation
 
 ## Deterministic identity
 
-The v6 audio output identity is:
+The v7 audio output identity is:
 
-`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + processingBackend + engineAbiVersion + numericContractVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
+`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + sourceDriftVersion + processingBackend + engineAbiVersion + numericContractVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
 
 The environment synthesizer remains algorithm v3. Audio source analysis drives the v2 multi-component source-spectrum model and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
 
-Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 6 records the resolved processing backend and contract versions in addition to the separate audio-only multi-component source-spectrum layer. These metadata changes do not modify `EnvironmentalNoiseSynth`.
+Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 7 records the resolved processing backend and contract versions in addition to the separate audio-only multi-component source-spectrum and source-coupled drift layers. These metadata changes do not modify `EnvironmentalNoiseSynth`.
 
 ## Processing engine boundary
 
@@ -18,7 +18,7 @@ The Rust module in `rust/` is the first staged Wasm boundary. It uses no third-p
 
 ## Engine benchmark contract
 
-`benchmark.html` compares only capabilities advertised by both the JavaScript reference backend and the loaded Wasm artifact. The current shared set is the stereo PCM analysis kernel and PCM scaling kernel; environment synthesis, source analysis, NMF, source-noise rendering, and the complete audio pipeline are not benchmarked until the Wasm capability mask and backend implementation both support them.
+`benchmark.html` compares only capabilities advertised by both the JavaScript reference backend and the loaded Wasm artifact. The current shared set is the stereo PCM analysis kernel and PCM scaling kernel; environment synthesis, source analysis, NMF, source-noise rendering, source-coupled drift, and the complete audio pipeline are not benchmarked until the Wasm capability mask and backend implementation both support them.
 
 The benchmark worker creates one deterministic stereo fixture, runs correctness probes before collecting timings, excludes warmups, interleaves backend order across measured rounds, and summarizes `performance.now()` samples with median, p90, interquartile range, and coefficient of variation. Results include backend startup separately from steady-state kernel timings. A hidden-tab transition invalidates an active run, and the report records the fixture, protocol, ABI, numeric contract, capability mask, browser environment, and preset so results are reproducible and not presented as a universal speed claim.
 
@@ -101,13 +101,21 @@ The analysis and factorization run in a module Web Worker during hosted audio ge
 
 The source model's identity is `sourceSpectrumNoiseVersion = 2` and `sourceComponentModelVersion = 1`. The original v1 follower remains in `src/source-spectrum-noise.js` with its golden fixture for regression comparison; the v2 app path does not silently rewrite that contract.
 
+## Source-coupled phase drift layer
+
+The offline audio path derives a quiet coherent phase shadow from the same source-component model. `src/source-drift.js` owns the versioned renderer (`sourceDriftVersion = 1`) and never replaces the independent environmental/source-spectrum layers.
+
+Three voices use fixed delay families of 0.2–0.8 ms, 1.2–4 ms, and 7–18 ms with 45/35/20 share. Each voice reads a ring buffer with linear fractional delay, transitions between deterministic delay targets with a convex crossfade, and applies fixed allpass stages plus gentle high-pass/low-pass protection. Voice input is activity-controlled, but delay/filter state is allowed to decay naturally. Mono is copied exactly; stereo uses source-derived covariance and a small deterministic channel offset.
+
+The coherent layer is never RMS-normalized. Its summed wet gain is bounded by a normal budget of 0.10 and an absolute ceiling of 0.18, leaving a positive dry floor even under worst-case opposition. `planCompositeAddedSignal` first allocates drift downward to the requested power share, then solves the independent-noise gain using the measured finite noise/drift cross-term. A sample-accurate peak scan determines one shared master trim. The merged path is `source + independentNoise × noiseGain + drift × driftGain`; the noise-only path is the exact post-gain `independentNoise × noiseGain + drift × driftGain` contribution. The video path is unchanged.
+
 ## Historical v1 source-spectrum-following audio layer
 
 The follower is a separate streaming filterbank. Sixteen logarithmically spaced second-order band-pass filters cover approximately 40 Hz through 0.45 Nyquist. Each band analyzes source power with attack/release envelopes, applies a small log-frequency smoothing kernel at a 32-sample control rate, and modulates a separately seeded carrier passed through a matching synthesis filter. Carrier RMS is normalized from deterministic impulse-response energy so band levels are comparable.
 
 Source activity is measured from the current input block and drives a soft gate. This prevents stale envelope state from producing a strong tail during digital silence while preserving smooth transitions. For stereo input, per-band cross-power estimates control a correlated pair of carriers; mono input is copied to both output channels.
 
-The raw layers are normalized independently and combined before noise gain planning:
+The historical raw layers are normalized independently and combined before noise gain planning:
 
 `rawNoise = sqrt(1 - q) × normalized(environment) + sqrt(q) × normalized(sourceSpectrum)`
 
@@ -121,11 +129,11 @@ The UI exposes a source-relative dB offset from -60 dB to -3 dB, in 0.5 dB steps
 
 Merged:
 
-`(source + rawNoise × noiseGain) × masterGain`
+`(source + rawNoise × noiseGain + sourceDrift × driftGain) × masterGain`
 
 Noise only:
 
-`rawNoise × noiseGain × masterGain`
+`(rawNoise × noiseGain + sourceDrift × driftGain) × masterGain`
 
 The noise-only WAV is therefore the exact isolated synthetic contribution used by the merged peak-safe path.
 

@@ -1,13 +1,15 @@
 import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from '../synth.js';
-import { analyzePcm, planNoiseGain, mixPcm, applyGainPcm, combineNoiseLayers } from '../loudness.js?v=1.7.0';
+import { analyzePcm, planNoiseGain, planCompositeAddedSignal, mixPcm, mixCompositePcm, renderCompositeNoiseOnly, applyGainPcm, combineNoiseLayers } from '../loudness.js?v=1.9.0';
 import { encodeWav16 } from '../wav.js';
 import {
   DEFAULT_MULTI_COMPONENT_CONFIG,
   DEFAULT_SOURCE_SPECTRUM_POWER_SHARE,
   SOURCE_COMPONENT_MODEL_VERSION,
   SOURCE_SPECTRUM_NOISE_VERSION,
-  renderSourceSpectrumNoiseInWorker
-} from '../multi-component-spectrum-noise.js?v=1.7.0';
+  renderSourceSpectrumNoiseInWorker,
+  renderSourceDerivedLayersInWorker
+} from '../multi-component-spectrum-noise.js?v=1.9.0';
+import { SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from '../source-drift.js?v=1.9.0';
 
 export const ENGINE_ABI_VERSION = 1;
 export const NUMERIC_CONTRACT_VERSION = 1;
@@ -19,6 +21,7 @@ export class JavaScriptBackend {
   algorithmVersion = ALGORITHM_VERSION;
   sourceSpectrumNoiseVersion = SOURCE_SPECTRUM_NOISE_VERSION;
   sourceComponentModelVersion = SOURCE_COMPONENT_MODEL_VERSION;
+  sourceDriftVersion = SOURCE_DRIFT_VERSION;
   capabilities = Object.freeze({
     pcmAnalysis: true,
     sampleScaling: true,
@@ -26,6 +29,8 @@ export class JavaScriptBackend {
     sourceAnalysis: true,
     nmf: true,
     sourceNoiseRendering: true,
+    sourceDerivedLayers: true,
+    sourceDriftRendering: true,
     completeAudioPipeline: true,
     fullPipeline: true,
     wasmFoundation: false
@@ -97,11 +102,31 @@ export class JavaScriptBackend {
     return renderSourceSpectrumNoiseInWorker(options);
   }
 
+  renderSourceDerivedLayers(options) {
+    return renderSourceDerivedLayersInWorker(options);
+  }
+
+  planCompositeAddedSignal(options) {
+    return planCompositeAddedSignal(options);
+  }
+
+  mixCompositePcm(sourceChannels, independentNoiseChannels, driftChannels, plan) {
+    return mixCompositePcm(sourceChannels, independentNoiseChannels, driftChannels, plan);
+  }
+
+  renderCompositeNoiseOnly(independentNoiseChannels, driftChannels, plan) {
+    return renderCompositeNoiseOnly(independentNoiseChannels, driftChannels, plan);
+  }
+
   get defaultSourceSpectrumConfig() {
     return DEFAULT_MULTI_COMPONENT_CONFIG;
   }
 
   get defaultSourceSpectrumPowerShare() {
     return DEFAULT_SOURCE_SPECTRUM_POWER_SHARE;
+  }
+
+  get defaultSourceDriftConfig() {
+    return DEFAULT_SOURCE_DRIFT_CONFIG;
   }
 }

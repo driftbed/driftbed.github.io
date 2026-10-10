@@ -39,6 +39,8 @@ test('capability descriptor gates full-pipeline rows by exports and mask', () =>
   assert.equal(descriptor.capabilities.sampleScaling, true);
   assert.equal(descriptor.capabilities.completeAudioPipeline, false);
   assert.ok(BENCHMARK_DEFINITIONS.some(definition => definition.id === 'completeAudioPipeline'));
+  assert.ok(BENCHMARK_DEFINITIONS.some(definition => definition.id === 'sourceDriftRendering'));
+  assert.equal(descriptor.capabilities.sourceDriftRendering, false);
 });
 
 test('benchmark preset configuration has bounded, reproducible defaults', () => {

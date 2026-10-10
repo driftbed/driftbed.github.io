@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.9.0 — source-coupled phase drift
+
+- Added a reusable source-coupled phase-drift renderer for offline audio. It uses three bounded fixed-delay voices, linear fractional-delay reads, convex delay transitions, fixed allpass diffusion, source-derived activity/transient controls, and source-aware stereo offsets.
+- Kept the coherent contribution separate from independent noise planning. A downward-only drift allocation, finite noise/drift cross-term, exact peak scan, and shared master trim preserve the merged/noise-only contribution invariant without RMS-normalizing the coherent layer.
+- Added a high-level source-derived engine API and module-worker path while preserving the existing source-spectrum API. The JavaScript backend advertises the new capability; the Wasm backend and source-drift benchmark row remain unavailable until parity exists.
+- Bumped the offline audio output recipe and PWA cache graph to v1.9.0. Video remains on the validated environment-only realtime path.
+
 ## v1.8.2 — capability-aware engine benchmark
 
 - Added a dedicated benchmark page with deterministic stereo fixtures, correctness gates, warmups, interleaved worker timing, median/p90/IQR/CV summaries, report export, and hidden-tab invalidation.

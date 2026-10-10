@@ -1,6 +1,6 @@
-import { createBenchmarkBackend, describeBenchmarkCapabilities, BENCHMARK_DEFINITIONS, BENCHMARK_PROTOCOL_VERSION } from './benchmark-capabilities.js?v=1.8.2';
-import { createPcmFixture, fixtureSignature, BENCHMARK_FIXTURE_VERSION, BENCHMARK_FIXTURE_SEED } from './benchmark-fixtures.js?v=1.8.2';
-import { summarizeTimings } from './benchmark-statistics.js?v=1.8.2';
+import { createBenchmarkBackend, describeBenchmarkCapabilities, BENCHMARK_DEFINITIONS, BENCHMARK_PROTOCOL_VERSION } from './benchmark-capabilities.js?v=1.9.0';
+import { createPcmFixture, fixtureSignature, BENCHMARK_FIXTURE_VERSION, BENCHMARK_FIXTURE_SEED } from './benchmark-fixtures.js?v=1.9.0';
+import { summarizeTimings } from './benchmark-statistics.js?v=1.9.0';
 
 function sendProgress(stage, completed, total, detail) {
   self.postMessage({ type: 'progress', stage, completed, total, detail });

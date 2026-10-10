@@ -1,6 +1,7 @@
 import { analyzeSourceSpectrumTimeline } from './source-component-analysis.js';
 import { factorizeNmf } from './nonnegative-factorization.js';
 import { rngFor } from './random.js';
+import { renderSourceDrift, SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from './source-drift.js?v=1.9.0';
 
 export const SOURCE_SPECTRUM_NOISE_VERSION = 2;
 export const SOURCE_COMPONENT_MODEL_VERSION = 1;
@@ -404,10 +405,37 @@ export function renderMultiComponentSourceSpectrumNoise({ channels, sampleRate, 
   return { channels: output, model };
 }
 
+export function renderSourceDerivedLayers({ channels, sampleRate, seed = 'default', config = {}, driftConfig = {}, onProgress } = {}) {
+  const model = SourceSpectrumNoiseModel.analyze({ channels, sampleRate, seed, config, onProgress });
+  onProgress?.({ value: 0.8, message: 'Generating source-following layers…' });
+  const spectrumRenderer = new MultiComponentSpectrumNoiseRenderer({
+    model,
+    seed,
+    microModulationDb: config.microModulationDb ?? DEFAULT_MULTI_COMPONENT_CONFIG.microModulationDb
+  });
+  const sourceSpectrumNoise = spectrumRenderer.render(channels?.[0]?.length || 0);
+  onProgress?.({ value: 0.86, message: 'Generating source-coupled phase drift…' });
+  const sourceDrift = renderSourceDrift({
+    channels,
+    sampleRate,
+    model,
+    seed,
+    config: { ...DEFAULT_SOURCE_DRIFT_CONFIG, ...driftConfig }
+  });
+  onProgress?.({ value: 1, message: 'Source-derived layers ready.' });
+  return {
+    sourceSpectrumNoise,
+    sourceDrift: sourceDrift.channels,
+    driftDiagnostics: sourceDrift.diagnostics,
+    model,
+    sourceDriftVersion: SOURCE_DRIFT_VERSION
+  };
+}
+
 export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed = 'default', config = {}, onProgress } = {}) {
   if (typeof Worker !== 'function') return Promise.resolve(renderMultiComponentSourceSpectrumNoise({ channels, sampleRate, seed, config, onProgress }).channels);
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.6.0', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.9.0', import.meta.url), { type: 'module' });
     const left = channels[0];
     const right = channels[1] || null;
     worker.onmessage = event => {
@@ -435,5 +463,44 @@ export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed =
     const transfer = [left.buffer];
     if (right) transfer.push(right.buffer);
     worker.postMessage({ type: 'render', left: left.buffer, right: right?.buffer || null, sampleRate, seed, config }, transfer);
+  });
+}
+
+export function renderSourceDerivedLayersInWorker({ channels, sampleRate, seed = 'default', config = {}, driftConfig = {}, onProgress } = {}) {
+  if (typeof Worker !== 'function') return Promise.resolve(renderSourceDerivedLayers({ channels, sampleRate, seed, config, driftConfig, onProgress }));
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.9.0', import.meta.url), { type: 'module' });
+    const left = channels[0];
+    const right = channels[1] || null;
+    worker.onmessage = event => {
+      const data = event.data || {};
+      if (data.type === 'progress') {
+        onProgress?.({ value: data.value, message: data.message });
+        return;
+      }
+      if (data.type === 'derivedResult') {
+        channels[0] = new Float32Array(data.sourceLeft);
+        if (data.sourceRight) channels[1] = new Float32Array(data.sourceRight);
+        worker.terminate();
+        resolve({
+          sourceSpectrumNoise: [new Float32Array(data.outputLeft), new Float32Array(data.outputRight)],
+          sourceDrift: [new Float32Array(data.driftLeft), new Float32Array(data.driftRight)],
+          driftDiagnostics: data.driftDiagnostics,
+          sourceDriftVersion: data.sourceDriftVersion
+        });
+        return;
+      }
+      if (data.type === 'error') {
+        worker.terminate();
+        reject(new Error(data.message || 'Source-derived worker failed.'));
+      }
+    };
+    worker.onerror = error => {
+      worker.terminate();
+      reject(error);
+    };
+    const transfer = [left.buffer];
+    if (right) transfer.push(right.buffer);
+    worker.postMessage({ type: 'renderDerived', left: left.buffer, right: right?.buffer || null, sampleRate, seed, config, driftConfig }, transfer);
   });
 }
