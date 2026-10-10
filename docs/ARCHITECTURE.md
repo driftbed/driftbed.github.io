@@ -137,6 +137,12 @@ Noise only:
 
 The noise-only WAV is therefore the exact isolated synthetic contribution used by the merged peak-safe path.
 
+## Media duration and encoding correctness
+
+Offline audio treats decoded PCM frame count as authoritative. `decodeFileToPcm()` returns `frameCount` and derives duration as `frameCount / sampleRate`; every generated layer is checked against that exact count before mixing and the strict PCM16 WAV encoder rejects unequal channels, invalid sample rates, oversized RIFF values, and non-finite samples. `inspectWav()` re-reads the emitted header and data chunk so frame-count regressions are testable without relying on container duration metadata.
+
+Realtime video starts both `MediaRecorder` instances without a timeslice, starts playback immediately after recorder startup, and stops both recorders from the source `ended` boundary. `src/webm-container.js` reads EBML `TimestampScale`, `Info/Duration`, `Tracks`, and `Cluster` metadata; export also measures browser playback duration. A video download is exposed only when source-timeline, container, and playback durations all fall within the shared tolerance. Cleanup stops tracks, disconnects Web Audio nodes, clears progress timers, closes the audio context, and revokes the object URL in a `finally` path.
+
 ## Video path and dual output
 
 The browser-native path uses `captureStream()`, Web Audio, and `MediaRecorder`. It currently uses the environment synthesizer only; the multi-component source-spectrum model is not claimed for video until its realtime AudioWorklet/capture integration has its own equivalence and performance evidence. The path simultaneously records:

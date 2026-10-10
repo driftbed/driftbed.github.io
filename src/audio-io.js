@@ -1,3 +1,5 @@
+import { assertPcmShape, pcmDurationSeconds } from './media-duration.js?v=1.9.1';
+
 export async function decodeFileToPcm(file) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   try {
@@ -5,7 +7,8 @@ export async function decodeFileToPcm(file) {
     const audio = await ctx.decodeAudioData(buffer);
     const channels = [];
     for (let c = 0; c < audio.numberOfChannels; c++) channels.push(new Float32Array(audio.getChannelData(c)));
-    return { channels, sampleRate: audio.sampleRate, duration: audio.duration };
+    const { frameCount } = assertPcmShape(channels, 'Decoded PCM');
+    return { channels, sampleRate: audio.sampleRate, frameCount, duration: pcmDurationSeconds(frameCount, audio.sampleRate) };
   } finally {
     await ctx.close();
   }

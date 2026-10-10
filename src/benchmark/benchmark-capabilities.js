@@ -1,4 +1,4 @@
-import { createProcessingEngine } from '../engine/engine.js?v=1.9.0';
+import { createProcessingEngine } from '../engine/engine.js?v=1.9.1';
 import { FULL_PIPELINE_CAPABILITY, loadWasmCore } from '../engine/wasm-loader.js?v=1.7.0';
 
 export const BENCHMARK_PROTOCOL_VERSION = 1;

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.9.1 — media duration and encoding correctness
+
+- Made decoded PCM frame count authoritative for offline-audio synthesis and WAV output duration, with strict channel-shape, sample-rate, finite-sample, and RIFF validation.
+- Added WAV inspection tests covering exact frame counts at 44.1 kHz and 48 kHz for mono and stereo output.
+- Removed the realtime video recorder timeslice, synchronized recorder startup and end-of-source stopping, added zero-fill and structured cleanup on teardown, and added source/wall/container/playback duration diagnostics.
+- Added a read-only WebM EBML inspector with safe in-place repair support for an existing 32-bit or 64-bit Duration element; missing metadata remains a controlled validation failure.
+- Bumped only the application/cache graph. The v7 output recipe and synthesis algorithms are unchanged.
+
 ## v1.9.0 — source-coupled phase drift
 
 - Added a reusable source-coupled phase-drift renderer for offline audio. It uses three bounded fixed-delay voices, linear fractional-delay reads, convex delay transitions, fixed allpass diffusion, source-derived activity/transient controls, and source-aware stereo offsets.

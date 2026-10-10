@@ -1,5 +1,5 @@
-import { comparisonLabel, stabilityLabel } from './benchmark-statistics.js?v=1.9.0';
-import { DRIFTBED_VERSION } from '../build-version.js?v=1.9.0';
+import { comparisonLabel, stabilityLabel } from './benchmark-statistics.js?v=1.9.1';
+import { DRIFTBED_VERSION } from '../build-version.js?v=1.9.1';
 
 const fixed = value => Number.isFinite(value) ? value.toFixed(value < 10 ? 2 : 1) : '—';
 

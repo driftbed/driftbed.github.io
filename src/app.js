@@ -1,7 +1,8 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { decodeFileToPcm, downloadBlob } from './audio-io.js';
-import { exportVideoRealtime } from './video-export.js';
-import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.9.0';
+import { decodeFileToPcm, downloadBlob } from './audio-io.js?v=1.9.1';
+import { assertPcmShape } from './media-duration.js?v=1.9.1';
+import { exportVideoRealtime } from './video-export.js?v=1.9.1';
+import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.9.1';
 
 const OUTPUT_RECIPE_VERSION = 7;
 
@@ -283,13 +284,13 @@ els.generate.onclick = async () => {
     const engine = await enginePromise;
     if (isVideo(selectedFile)) {
       setStatus('Exporting merged video and matching noise-only audio in real time. Keep this tab active.');
-      const { mixedBlob, noiseBlob, sceneCount, sceneSummary, spectralCount } = await exportVideoRealtime({ engine, file: selectedFile, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
+      const { mixedBlob, noiseBlob, sceneCount, sceneSummary, spectralCount, durationDiagnostics } = await exportVideoRealtime({ engine, file: selectedFile, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
       const base = selectedFile.name.replace(/\.[^.]+$/, '');
       lastMergedBlob = mixedBlob; lastMergedName = `${base}-noised.webm`;
       lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.webm`;
       replacePlayer('result', 'video', mixedBlob);
       replacePlayer('noise', 'audio', noiseBlob);
-      els.metrics.textContent = `Relative noise target ${relativeDb.toFixed(1)} dB · ${sceneCount} deterministic regimes · ${spectralCount} frequency components · ${sceneSummary} · merged WebM + matching noise-only Opus/WebM`; 
+      els.metrics.textContent = `Relative noise target ${relativeDb.toFixed(1)} dB · ${sceneCount} deterministic regimes · ${spectralCount} frequency components · ${sceneSummary} · source ${durationDiagnostics.sourceEndMediaTime.toFixed(3)} s · merged ${durationDiagnostics.mixed.playbackDuration.toFixed(3)} s · noise ${durationDiagnostics.noise.playbackDuration.toFixed(3)} s`;
       setStatus('Video export complete. Both merged media and noise-only audio are ready.');
     } else {
       setStatus('Decoding and analyzing source…'); setProgress(0.08);
@@ -297,8 +298,9 @@ els.generate.onclick = async () => {
       const sourceAnalysis = engine.analyzePcm(source.channels, source.sampleRate);
       setStatus('Synthesizing deterministic environment…'); setProgress(0.25);
       const synth = engine.createEnvironmentSynth({ seed, sampleRate: source.sampleRate, durationSeconds: source.duration, profile, variation, scenePace, spectralDetail });
-      const frames = Math.round(source.duration * source.sampleRate);
+      const frames = source.frameCount;
       const rawEnvironmental = synth.render(frames);
+      assertPcmShape(rawEnvironmental, 'Environmental layer', source.frameCount);
       const sourceDerived = await engine.renderSourceDerivedLayers({
         channels: source.channels,
         sampleRate: source.sampleRate,
@@ -312,7 +314,10 @@ els.generate.onclick = async () => {
       });
       const sourceSpectrumNoise = sourceDerived.sourceSpectrumNoise;
       const sourceDrift = sourceDerived.sourceDrift;
+      assertPcmShape(sourceSpectrumNoise, 'Source-spectrum layer', source.frameCount);
+      assertPcmShape(sourceDrift, 'Source-drift layer', source.frameCount);
       const rawNoise = engine.combineNoiseLayers(rawEnvironmental, sourceSpectrumNoise, engine.defaultSourceSpectrumPowerShare);
+      assertPcmShape(rawNoise, 'Combined noise layer', source.frameCount);
       const scenePlan = synth.scenePlan;
       const spectralCount = synth.spectralComponents.length;
       setStatus('Planning level and creating merged + noise-only outputs…'); setProgress(0.72);
@@ -327,6 +332,8 @@ els.generate.onclick = async () => {
       });
       const mixed = engine.mixCompositePcm(source.channels, rawNoise, sourceDrift, plan);
       const noiseOnly = engine.renderCompositeNoiseOnly(rawNoise, sourceDrift, plan);
+      assertPcmShape(mixed, 'Merged PCM', source.frameCount);
+      assertPcmShape(noiseOnly, 'Noise-only PCM', source.frameCount);
       const outputAnalysis = engine.analyzePcm(mixed, source.sampleRate);
       const noiseOnlyAnalysis = engine.analyzePcm(noiseOnly, source.sampleRate);
       setStatus('Encoding WAV outputs…'); setProgress(0.92);

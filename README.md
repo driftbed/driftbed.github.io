@@ -15,6 +15,8 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Lets you control relative level, pattern variety, scene pace, and spectral detail.
 - Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
 - Exports a separately previewable/downloadable noise-only track.
+- Derives offline-audio duration from decoded PCM frame counts, validates equal channel lengths, and inspects generated WAV frame counts before treating the output as complete.
+- Validates realtime WebM container and browser playback durations against the source timeline before exposing a video download.
 - For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
 - For offline audio, adds a bounded source-coupled phase-drift layer with fixed fractional delays and convex crossfades. Its coherent gain is budgeted separately so it cannot turn into feedback, flanging, pitch wobble, or a dominant comb-filter effect.
 - Uses one backend-neutral processing-engine API. Automatic mode probes the committed Wasm core and safely falls back to the JavaScript reference path until the full Wasm DSP pipeline passes parity gates.
