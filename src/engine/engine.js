@@ -1,4 +1,4 @@
-import { JavaScriptBackend } from './javascript-backend.js?v=1.9.1';
+import { JavaScriptBackend } from './javascript-backend.js?v=1.10.0';
 import { createWasmBackend } from './wasm-backend.js?v=1.7.0';
 
 export const ENGINE_PREFERENCE_KEY = 'driftbed.processingEngine';

@@ -1,5 +1,5 @@
-import { classifyDuration, DURATION_TOLERANCE_SECONDS, measureBlobPlaybackDuration } from './media-duration.js?v=1.9.1';
-import { inspectWebm } from './webm-container.js?v=1.9.1';
+import { classifyDuration, DURATION_TOLERANCE_SECONDS, measureBlobPlaybackDuration } from './media-duration.js?v=1.10.0';
+import { inspectWebm } from './webm-container.js?v=1.10.0';
 
 function createRecorder(stream, candidates, onError) {
   const mimeType = candidates.find(type => MediaRecorder.isTypeSupported(type)) || '';

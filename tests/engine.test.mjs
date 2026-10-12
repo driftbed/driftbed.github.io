@@ -17,6 +17,8 @@ test('JavaScript backend exposes the shared engine contract', async () => {
   assert.equal(engine.capabilities.fullPipeline, true);
   assert.equal(engine.capabilities.sourceDerivedLayers, true);
   assert.equal(engine.sourceDriftVersion, 1);
+  assert.equal(engine.sourceFrequencyVariedNoiseVersion, 1);
+  assert.equal(engine.defaultSourceFrequencyVariedConfig.shareWithinSourceFollow, 0.25);
   assert.equal(typeof engine.createEnvironmentSynth, 'function');
   assert.equal(typeof engine.renderSourceSpectrumNoise, 'function');
   assert.equal(typeof engine.renderSourceDerivedLayers, 'function');

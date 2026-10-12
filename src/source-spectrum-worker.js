@@ -1,4 +1,4 @@
-import { renderMultiComponentSourceSpectrumNoise, renderSourceDerivedLayers } from './multi-component-spectrum-noise.js?v=1.9.1';
+import { renderMultiComponentSourceSpectrumNoise, renderSourceDerivedLayers } from './multi-component-spectrum-noise.js?v=1.10.0';
 
 self.onmessage = event => {
   const data = event.data || {};
@@ -15,8 +15,8 @@ self.onmessage = event => {
         driftConfig: data.driftConfig,
         onProgress: progress => self.postMessage({ type: 'progress', ...progress })
       });
-      const outputLeft = result.sourceSpectrumNoise[0];
-      const outputRight = result.sourceSpectrumNoise[1];
+      const outputLeft = result.sourceStochasticNoise[0];
+      const outputRight = result.sourceStochasticNoise[1];
       const driftLeft = result.sourceDrift[0];
       const driftRight = result.sourceDrift[1];
       const transfer = [left.buffer, outputLeft.buffer, outputRight.buffer, driftLeft.buffer, driftRight.buffer];
@@ -30,7 +30,9 @@ self.onmessage = event => {
         driftLeft: driftLeft.buffer,
         driftRight: driftRight.buffer,
         driftDiagnostics: result.driftDiagnostics,
-        sourceDriftVersion: result.sourceDriftVersion
+        sourceDriftVersion: result.sourceDriftVersion,
+        sourceFrequencyVariedNoiseDiagnostics: result.sourceFrequencyVariedNoiseDiagnostics,
+        sourceFrequencyVariedNoiseVersion: result.sourceFrequencyVariedNoiseVersion
       }, transfer);
       return;
     }

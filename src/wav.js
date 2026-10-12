@@ -1,4 +1,4 @@
-import { assertPcmShape, assertSampleRate, pcmDurationSeconds } from './media-duration.js?v=1.9.1';
+import { assertPcmShape, assertSampleRate, pcmDurationSeconds } from './media-duration.js?v=1.10.0';
 
 function writeAscii(view, offset, text) {
   for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));

@@ -29,6 +29,8 @@ test('source worker accepts the derived-layer operation', async () => {
   const result = messages.find(message => message.type === 'derivedResult');
   assert.ok(result);
   assert.equal(result.sourceDriftVersion, 1);
+  assert.equal(result.sourceFrequencyVariedNoiseVersion, 1);
+  assert.ok(result.sourceFrequencyVariedNoiseDiagnostics);
   assert.equal(new Float32Array(result.outputLeft).length, left.length);
   assert.equal(new Float32Array(result.driftLeft).length, left.length);
   assert.ok(result.driftDiagnostics.maxVoiceGainSum <= 0.10 + 1e-12);

@@ -1,7 +1,13 @@
 import { analyzeSourceSpectrumTimeline } from './source-component-analysis.js';
 import { factorizeNmf } from './nonnegative-factorization.js';
 import { rngFor } from './random.js';
-import { renderSourceDrift, SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from './source-drift.js?v=1.9.1';
+import { renderSourceDrift, SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from './source-drift.js?v=1.10.0';
+import {
+  combineIndependentLayersInPlace,
+  DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG,
+  renderFrequencyVariedNoise,
+  SOURCE_FREQUENCY_VARIED_NOISE_VERSION
+} from './source-frequency-varied-noise.js?v=1.10.0';
 
 export const SOURCE_SPECTRUM_NOISE_VERSION = 2;
 export const SOURCE_COMPONENT_MODEL_VERSION = 1;
@@ -15,7 +21,8 @@ export const DEFAULT_MULTI_COMPONENT_CONFIG = Object.freeze({
   templateTrainingFrames: 4096,
   nmfIterations: 60,
   activationIterations: 10,
-  microModulationDb: 0.5
+  microModulationDb: 0.5,
+  frequencyVariedNoise: DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG
 });
 
 const EPSILON = 1e-12;
@@ -266,6 +273,7 @@ export class SourceSpectrumNoiseModel {
     });
     const model = buildComponentModel(timeline, nmf, settings);
     model.seed = seed;
+    model.mono = !channels?.[1];
     onProgress?.({ value: 0.7, message: 'Preparing component-specific stochastic layers…' });
     return model;
   }
@@ -413,8 +421,15 @@ export function renderSourceDerivedLayers({ channels, sampleRate, seed = 'defaul
     seed,
     microModulationDb: config.microModulationDb ?? DEFAULT_MULTI_COMPONENT_CONFIG.microModulationDb
   });
-  const sourceSpectrumNoise = spectrumRenderer.render(channels?.[0]?.length || 0);
-  onProgress?.({ value: 0.86, message: 'Generating source-coupled phase drift…' });
+  const alignedSourceSpectrumNoise = spectrumRenderer.render(channels?.[0]?.length || 0);
+  const variedConfig = { ...DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG, ...(config.frequencyVariedNoise || {}) };
+  const varied = variedConfig.enabled
+    ? renderFrequencyVariedNoise({ model, seed, config: variedConfig, onProgress })
+    : { diagnostics: { version: SOURCE_FREQUENCY_VARIED_NOISE_VERSION, componentCount: model.componentCount, disabled: true }, sourceFrequencyVariedNoiseVersion: SOURCE_FREQUENCY_VARIED_NOISE_VERSION };
+  const sourceStochasticNoise = variedConfig.enabled
+    ? combineIndependentLayersInPlace(alignedSourceSpectrumNoise, varied.channels, variedConfig.shareWithinSourceFollow)
+    : alignedSourceSpectrumNoise;
+  onProgress?.({ value: 0.88, message: 'Generating source-coupled phase drift…' });
   const sourceDrift = renderSourceDrift({
     channels,
     sampleRate,
@@ -424,7 +439,10 @@ export function renderSourceDerivedLayers({ channels, sampleRate, seed = 'defaul
   });
   onProgress?.({ value: 1, message: 'Source-derived layers ready.' });
   return {
-    sourceSpectrumNoise,
+    sourceSpectrumNoise: sourceStochasticNoise,
+    sourceStochasticNoise,
+    sourceFrequencyVariedNoiseDiagnostics: varied.diagnostics,
+    sourceFrequencyVariedNoiseVersion: varied.sourceFrequencyVariedNoiseVersion,
     sourceDrift: sourceDrift.channels,
     driftDiagnostics: sourceDrift.diagnostics,
     model,
@@ -435,7 +453,7 @@ export function renderSourceDerivedLayers({ channels, sampleRate, seed = 'defaul
 export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed = 'default', config = {}, onProgress } = {}) {
   if (typeof Worker !== 'function') return Promise.resolve(renderMultiComponentSourceSpectrumNoise({ channels, sampleRate, seed, config, onProgress }).channels);
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.9.1', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.10.0', import.meta.url), { type: 'module' });
     const left = channels[0];
     const right = channels[1] || null;
     worker.onmessage = event => {
@@ -469,7 +487,7 @@ export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed =
 export function renderSourceDerivedLayersInWorker({ channels, sampleRate, seed = 'default', config = {}, driftConfig = {}, onProgress } = {}) {
   if (typeof Worker !== 'function') return Promise.resolve(renderSourceDerivedLayers({ channels, sampleRate, seed, config, driftConfig, onProgress }));
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.9.1', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.10.0', import.meta.url), { type: 'module' });
     const left = channels[0];
     const right = channels[1] || null;
     worker.onmessage = event => {
@@ -483,9 +501,12 @@ export function renderSourceDerivedLayersInWorker({ channels, sampleRate, seed =
         if (data.sourceRight) channels[1] = new Float32Array(data.sourceRight);
         worker.terminate();
         resolve({
-          sourceSpectrumNoise: [new Float32Array(data.outputLeft), new Float32Array(data.outputRight)],
+          sourceSpectrumNoise: [new Float32Array(data.alignedLeft || data.outputLeft), new Float32Array(data.alignedRight || data.outputRight)],
+          sourceStochasticNoise: [new Float32Array(data.outputLeft), new Float32Array(data.outputRight)],
           sourceDrift: [new Float32Array(data.driftLeft), new Float32Array(data.driftRight)],
           driftDiagnostics: data.driftDiagnostics,
+          sourceFrequencyVariedNoiseDiagnostics: data.sourceFrequencyVariedNoiseDiagnostics,
+          sourceFrequencyVariedNoiseVersion: data.sourceFrequencyVariedNoiseVersion,
           sourceDriftVersion: data.sourceDriftVersion
         });
         return;

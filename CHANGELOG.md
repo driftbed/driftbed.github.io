@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.10.0 — frequency-varied source-spectrum noise
+
+- Added a deterministic frequency-varied stochastic source layer beside the unchanged aligned source-spectrum v2 renderer and coherent Source Drift v1 layer.
+- Warps component power in log frequency using slow hierarchical cent trajectories, bass/transient/Nyquist/edge protection, power-conserving forward scatter, and preserved stereo covariance. It never pitch-shifts or reuses source waveform phase.
+- Combines the aligned and varied source-following stochastic layers in the source worker at a fixed 25% varied share, preserving the existing outer 0.35 source-follow power share and exact PCM duration.
+- Added deterministic trajectory, cents-mapping, power-conservation, direction, stereo/mono, silence, duration, worker, and recipe/cache regression coverage.
+- Bumped the user-visible app to 1.10.0 and the offline audio output recipe to 8. WebAssembly remains honestly unavailable for this feature until a full Rust parity implementation exists.
+
 ## v1.9.1 — media duration and encoding correctness
 
 - Made decoded PCM frame count authoritative for offline-audio synthesis and WAV output duration, with strict channel-shape, sample-rate, finite-sample, and RIFF validation.

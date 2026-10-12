@@ -1,14 +1,14 @@
-# Architecture — output recipe v7 and dual backend foundation
+# Architecture — output recipe 8 and dual backend foundation
 
 ## Deterministic identity
 
-The v7 audio output identity is:
+The v8 audio output identity is:
 
-`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceComponentModelVersion + sourceDriftVersion + processingBackend + engineAbiVersion + numericContractVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
+`outputRecipeVersion + environmentSynthVersion + sourceSpectrumNoiseVersion + sourceFrequencyVariedNoiseVersion + sourceComponentModelVersion + sourceDriftVersion + processingBackend + engineAbiVersion + numericContractVersion + seed + duration + sampleRate + profile + patternVariety + scenePace + spectralDetail`
 
 The environment synthesizer remains algorithm v3. Audio source analysis drives the v2 multi-component source-spectrum model and the source-relative gain plan. Video currently uses the established environment-only realtime path, so its validated output remains on the v3 synthesis contract.
 
-Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 7 records the resolved processing backend and contract versions in addition to the separate audio-only multi-component source-spectrum and source-coupled drift layers. These metadata changes do not modify `EnvironmentalNoiseSynth`.
+Algorithm version 3 adds a deterministic per-frequency magnitude/phase field while retaining the version-2 calibrated environmental base layers in their own stable seed namespaces. Output recipe version 8 records the resolved processing backend and contract versions in addition to the separate audio-only multi-component source-spectrum, frequency-varied source-spectrum, and source-coupled drift layers. These metadata changes do not modify `EnvironmentalNoiseSynth`.
 
 ## Processing engine boundary
 
@@ -100,6 +100,12 @@ The v2 source model is deliberately a latent acoustic decomposition, not semanti
 The analysis and factorization run in a module Web Worker during hosted audio generation when the browser supports module workers. A synchronous fallback preserves functionality in environments without `Worker`.
 
 The source model's identity is `sourceSpectrumNoiseVersion = 2` and `sourceComponentModelVersion = 1`. The original v1 follower remains in `src/source-spectrum-noise.js` with its golden fixture for regression comparison; the v2 app path does not silently rewrite that contract.
+
+## Frequency-varied source-spectrum stochastic layer
+
+`src/source-frequency-varied-noise.js` consumes the same component model and never reads source PCM phase. `FrequencyDriftTimeline` creates deterministic, slow macro-plus-component trajectories in cents. The renderer applies bass, transient, edge, and Nyquist protection, forward-scatters each component's power in log frequency between the existing fixed synthesis bands, clamps stereo covariance to its physical bound, and renders with independent carrier/modulation namespaces. Only current and next warped frames are used by the sample renderer; no second component-by-band timeline is allocated.
+
+The aligned and varied stochastic layers are normalized and combined inside the source worker with `sqrt(0.75)` / `sqrt(0.25)` weights. The result is returned as `sourceStochasticNoise`, while `renderSourceSpectrumNoise()` remains the historical aligned v2 API. WebAssembly does not advertise this feature until a full Rust implementation can pass parity checks.
 
 ## Source-coupled phase drift layer
 

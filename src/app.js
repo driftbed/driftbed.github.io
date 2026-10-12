@@ -1,10 +1,10 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { decodeFileToPcm, downloadBlob } from './audio-io.js?v=1.9.1';
-import { assertPcmShape } from './media-duration.js?v=1.9.1';
-import { exportVideoRealtime } from './video-export.js?v=1.9.1';
-import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.9.1';
+import { decodeFileToPcm, downloadBlob } from './audio-io.js?v=1.10.0';
+import { assertPcmShape } from './media-duration.js?v=1.10.0';
+import { exportVideoRealtime } from './video-export.js?v=1.10.0';
+import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.10.0';
 
-const OUTPUT_RECIPE_VERSION = 7;
+const OUTPUT_RECIPE_VERSION = 8;
 
 const $ = s => document.querySelector(s);
 const els = {
@@ -223,6 +223,7 @@ els.recipe.onclick = async () => {
     sourceSpectrumNoiseVersion: engine.sourceSpectrumNoiseVersion,
     sourceComponentModelVersion: engine.sourceComponentModelVersion,
     sourceDriftVersion: engine.sourceDriftVersion,
+    sourceFrequencyVariedNoiseVersion: engine.sourceFrequencyVariedNoiseVersion,
     processingEnginePreference: enginePreference,
     processingBackend: engine.backend,
     engineAbiVersion: engine.abiVersion,
@@ -245,6 +246,19 @@ els.recipe.onclick = async () => {
       stereoMode: 'component-covariance',
       nmfIterations: sourceConfig.nmfIterations,
       activationIterations: sourceConfig.activationIterations
+    },
+    sourceFrequencyVariedNoise: {
+      ...engine.defaultSourceFrequencyVariedConfig,
+      enabled: true,
+      shareWithinSourceFollow: engine.defaultSourceFrequencyVariedConfig.shareWithinSourceFollow,
+      frequencyUnit: 'cents',
+      mapping: 'log-frequency-power-conserving',
+      trajectory: 'component-hierarchical-slow-drift',
+      carrierMode: 'independent',
+      transientProtection: true,
+      bassProtection: true,
+      edgeProtection: true,
+      nyquistProtection: true
     },
     sourceDrift: {
       ...engine.defaultSourceDriftConfig,
@@ -312,7 +326,7 @@ els.generate.onclick = async () => {
           setProgress(0.25 + value * 0.4);
         }
       });
-      const sourceSpectrumNoise = sourceDerived.sourceSpectrumNoise;
+      const sourceSpectrumNoise = sourceDerived.sourceStochasticNoise || sourceDerived.sourceSpectrumNoise;
       const sourceDrift = sourceDerived.sourceDrift;
       assertPcmShape(sourceSpectrumNoise, 'Source-spectrum layer', source.frameCount);
       assertPcmShape(sourceDrift, 'Source-drift layer', source.frameCount);
