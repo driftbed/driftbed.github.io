@@ -13,10 +13,10 @@ Driftbed adds natural, evolving environmental background to a user-supplied audi
 - Uses deterministic seeds so the same recipe can reproduce the same background.
 - Provides environments such as quiet rooms, indoor low frequency, ventilation, and distant urban activity.
 - Lets you control relative level, pattern variety, scene pace, and spectral detail.
-- Exports merged audio as WAV and merged video as WebM in Chromium-based browsers.
+- Exports merged audio as WAV and merged video using direct media capture where available or a canvas compatibility path otherwise; the recorder negotiates WebM or MP4 from the browser's actual capabilities.
 - Exports a separately previewable/downloadable noise-only track.
 - Derives offline-audio duration from decoded PCM frame counts, validates equal channel lengths, and inspects generated WAV frame counts before treating the output as complete.
-- Validates realtime WebM container and browser playback durations against the source timeline before exposing a video download.
+- Validates realtime WebM or MP4 container metadata and browser playback durations against the source timeline before exposing a video download.
 - For audio, adds deterministic source-spectrum-following stochastic layers. A soft harmonic/transient analysis and deterministic nonnegative matrix factorization discover latent spectral-temporal components, while preserving the measured source power partition. These are acoustic feature layers, not claimed semantic voice, instrument, or music stems.
 - For audio, blends the aligned source-spectrum layer with a separate frequency-varied stochastic layer. The latter shifts component power gradually in logarithmic frequency using independent carriers; it does not pitch-shift the source waveform or use source phase.
 - For offline audio, adds a bounded source-coupled phase-drift layer with fixed fractional delays and convex crossfades. Its coherent gain is budgeted separately so it cannot turn into feedback, flanging, pitch wobble, or a dominant comb-filter effect.
@@ -65,7 +65,7 @@ Run the test suite with:
 npm test
 ```
 
-The video path uses `HTMLVideoElement.captureStream()` and `MediaRecorder`, so current Chromium-based browsers are recommended for video export. Audio support follows the browser's `decodeAudioData()` support.
+The video path uses capability-driven direct or canvas capture with `MediaRecorder`. Canvas capture follows `requestVideoFrameCallback()` when available, preserves the decoded video dimensions, and falls back to `requestAnimationFrame()` for older implementations. Output format and filename are selected from the browser's supported recorder profiles. Audio support follows the browser's `decodeAudioData()` support.
 
 ### Wasm development status
 

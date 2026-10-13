@@ -1,4 +1,4 @@
-import { assertPcmShape, pcmDurationSeconds } from './media-duration.js?v=1.10.0';
+import { assertPcmShape, pcmDurationSeconds } from './media-duration.js?v=1.11.0';
 
 export async function decodeFileToPcm(file) {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();

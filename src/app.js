@@ -1,8 +1,8 @@
 import { PROFILES, STRENGTH_PRESETS } from './profiles.js';
-import { decodeFileToPcm, downloadBlob } from './audio-io.js?v=1.10.0';
-import { assertPcmShape } from './media-duration.js?v=1.10.0';
-import { exportVideoRealtime } from './video-export.js?v=1.10.0';
-import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.10.0';
+import { decodeFileToPcm, downloadBlob } from './audio-io.js?v=1.11.0';
+import { assertPcmShape } from './media-duration.js?v=1.11.0';
+import { exportVideoRealtime, prepareVideoExport } from './video-export.js?v=1.11.0';
+import { ENGINE_PREFERENCE_KEY, createProcessingEngine, normalizeEnginePreference } from './engine/engine.js?v=1.11.0';
 
 const OUTPUT_RECIPE_VERSION = 8;
 
@@ -32,6 +32,8 @@ els.strengthDb.value = els.strength.value;
 els.seed.value = `environment-${crypto.getRandomValues(new Uint32Array(1))[0]}`;
 
 let selectedFile = null;
+let videoPreflight = null;
+let fileSelectionToken = 0;
 let lastMergedBlob = null, lastMergedName = null;
 let lastNoiseBlob = null, lastNoiseName = null;
 const objectUrls = new Set();
@@ -179,7 +181,9 @@ function replacePlayer(key, tagName, blob) {
 }
 
 function chooseFile(file) {
+  const token = ++fileSelectionToken;
   selectedFile = file;
+  videoPreflight = null;
   clearGeneratedUrls();
   resetOutputs();
   els.fileName.textContent = file ? `${file.name} · ${(file.size / 1048576).toFixed(1)} MB` : 'No file selected';
@@ -189,6 +193,21 @@ function chooseFile(file) {
     const tag = isVideo(file) ? 'video' : 'audio';
     els.original.outerHTML = `<${tag} id="originalPlayer" controls class="player" src="${url}"></${tag}>`;
     els.original = $('#originalPlayer');
+    if (isVideo(file)) {
+      els.generate.disabled = true;
+      setStatus('Checking video playback and local recording support…');
+      prepareVideoExport(file).then(preflight => {
+        if (token !== fileSelectionToken || selectedFile !== file) return;
+        videoPreflight = preflight;
+        els.fileName.textContent = `${file.name} · ${(file.size / 1048576).toFixed(1)} MB · ${preflight.width}×${preflight.height} · ${preflight.duration.toFixed(2)} s · ${preflight.captureKind} capture · ${preflight.profile.container.toUpperCase()}`;
+        els.generate.disabled = false;
+        setStatus('Video ready. Keep this tab visible while exporting.');
+      }).catch(error => {
+        if (token !== fileSelectionToken || selectedFile !== file) return;
+        els.generate.disabled = true;
+        setStatus(error?.message || String(error), true);
+      });
+    }
   }
 }
 
@@ -298,13 +317,13 @@ els.generate.onclick = async () => {
     const engine = await enginePromise;
     if (isVideo(selectedFile)) {
       setStatus('Exporting merged video and matching noise-only audio in real time. Keep this tab active.');
-      const { mixedBlob, noiseBlob, sceneCount, sceneSummary, spectralCount, durationDiagnostics } = await exportVideoRealtime({ engine, file: selectedFile, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
+      const { mixedBlob, noiseBlob, mixedExtension, noiseExtension, capturePath, recorderProfile, sceneCount, sceneSummary, spectralCount, durationDiagnostics } = await exportVideoRealtime({ engine, file: selectedFile, prepared: videoPreflight, seed, profile, variation, scenePace, spectralDetail, relativeDb, onProgress: setProgress });
       const base = selectedFile.name.replace(/\.[^.]+$/, '');
-      lastMergedBlob = mixedBlob; lastMergedName = `${base}-noised.webm`;
-      lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.webm`;
+      lastMergedBlob = mixedBlob; lastMergedName = `${base}-noised.${mixedExtension}`;
+      lastNoiseBlob = noiseBlob; lastNoiseName = `${base}-noise-only.${noiseExtension}`;
       replacePlayer('result', 'video', mixedBlob);
       replacePlayer('noise', 'audio', noiseBlob);
-      els.metrics.textContent = `Relative noise target ${relativeDb.toFixed(1)} dB · ${sceneCount} deterministic regimes · ${spectralCount} frequency components · ${sceneSummary} · source ${durationDiagnostics.sourceEndMediaTime.toFixed(3)} s · merged ${durationDiagnostics.mixed.playbackDuration.toFixed(3)} s · noise ${durationDiagnostics.noise.playbackDuration.toFixed(3)} s`;
+      els.metrics.textContent = `Relative noise target ${relativeDb.toFixed(1)} dB · ${capturePath} capture · ${recorderProfile} · ${sceneCount} deterministic regimes · ${spectralCount} frequency components · ${sceneSummary} · source ${durationDiagnostics.sourceEndMediaTime.toFixed(3)} s · merged ${durationDiagnostics.mixed.playbackDuration.toFixed(3)} s · noise ${durationDiagnostics.noise.playbackDuration.toFixed(3)} s`;
       setStatus('Video export complete. Both merged media and noise-only audio are ready.');
     } else {
       setStatus('Decoding and analyzing source…'); setProgress(0.08);

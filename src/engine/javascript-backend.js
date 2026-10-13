@@ -1,6 +1,6 @@
 import { ALGORITHM_VERSION, EnvironmentalNoiseSynth, buildSpectralField, summarizeSceneTimeline } from '../synth.js';
-import { analyzePcm, planNoiseGain, planCompositeAddedSignal, mixPcm, mixCompositePcm, renderCompositeNoiseOnly, applyGainPcm, combineNoiseLayers } from '../loudness.js?v=1.10.0';
-import { encodeWav16 } from '../wav.js?v=1.10.0';
+import { analyzePcm, planNoiseGain, planCompositeAddedSignal, mixPcm, mixCompositePcm, renderCompositeNoiseOnly, applyGainPcm, combineNoiseLayers } from '../loudness.js?v=1.11.0';
+import { encodeWav16 } from '../wav.js?v=1.11.0';
 import {
   DEFAULT_MULTI_COMPONENT_CONFIG,
   DEFAULT_SOURCE_SPECTRUM_POWER_SHARE,
@@ -8,9 +8,9 @@ import {
   SOURCE_SPECTRUM_NOISE_VERSION,
   renderSourceSpectrumNoiseInWorker,
   renderSourceDerivedLayersInWorker
-} from '../multi-component-spectrum-noise.js?v=1.10.0';
-import { DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG, SOURCE_FREQUENCY_VARIED_NOISE_VERSION } from '../source-frequency-varied-noise.js?v=1.10.0';
-import { SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from '../source-drift.js?v=1.10.0';
+} from '../multi-component-spectrum-noise.js?v=1.11.0';
+import { DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG, SOURCE_FREQUENCY_VARIED_NOISE_VERSION } from '../source-frequency-varied-noise.js?v=1.11.0';
+import { SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from '../source-drift.js?v=1.11.0';
 
 export const ENGINE_ABI_VERSION = 1;
 export const NUMERIC_CONTRACT_VERSION = 1;

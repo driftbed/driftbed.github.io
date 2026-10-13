@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.11.0 — capability-driven video export
+
+- Added capability probing for direct media capture, canvas capture, presented-frame callbacks, and paired MediaRecorder profiles.
+- Added a canvas compatibility path for browsers without `HTMLVideoElement.captureStream()`, preserving decoded portrait dimensions and using `requestVideoFrameCallback()` when available.
+- Added WebM/MP4 container sniffing, minimal ISO-BMFF inspection, fragmented-MP4 metadata handling, and format-aware duration auditing.
+- Made video preflight, recorder selection, output extensions, and implementation notes reflect actual browser capabilities instead of recommending a browser brand.
+- Added focused tests for MP4 parsing, recorder negotiation, portrait canvas capture, and service-worker cache coverage.
+
 ## v1.10.0 — frequency-varied source-spectrum noise
 
 - Added a deterministic frequency-varied stochastic source layer beside the unchanged aligned source-spectrum v2 renderer and coherent Source Drift v1 layer.

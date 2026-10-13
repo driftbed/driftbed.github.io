@@ -1,13 +1,13 @@
 import { analyzeSourceSpectrumTimeline } from './source-component-analysis.js';
 import { factorizeNmf } from './nonnegative-factorization.js';
 import { rngFor } from './random.js';
-import { renderSourceDrift, SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from './source-drift.js?v=1.10.0';
+import { renderSourceDrift, SOURCE_DRIFT_VERSION, DEFAULT_SOURCE_DRIFT_CONFIG } from './source-drift.js?v=1.11.0';
 import {
   combineIndependentLayersInPlace,
   DEFAULT_SOURCE_FREQUENCY_VARIED_CONFIG,
   renderFrequencyVariedNoise,
   SOURCE_FREQUENCY_VARIED_NOISE_VERSION
-} from './source-frequency-varied-noise.js?v=1.10.0';
+} from './source-frequency-varied-noise.js?v=1.11.0';
 
 export const SOURCE_SPECTRUM_NOISE_VERSION = 2;
 export const SOURCE_COMPONENT_MODEL_VERSION = 1;
@@ -453,7 +453,7 @@ export function renderSourceDerivedLayers({ channels, sampleRate, seed = 'defaul
 export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed = 'default', config = {}, onProgress } = {}) {
   if (typeof Worker !== 'function') return Promise.resolve(renderMultiComponentSourceSpectrumNoise({ channels, sampleRate, seed, config, onProgress }).channels);
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.10.0', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.11.0', import.meta.url), { type: 'module' });
     const left = channels[0];
     const right = channels[1] || null;
     worker.onmessage = event => {
@@ -487,7 +487,7 @@ export function renderSourceSpectrumNoiseInWorker({ channels, sampleRate, seed =
 export function renderSourceDerivedLayersInWorker({ channels, sampleRate, seed = 'default', config = {}, driftConfig = {}, onProgress } = {}) {
   if (typeof Worker !== 'function') return Promise.resolve(renderSourceDerivedLayers({ channels, sampleRate, seed, config, driftConfig, onProgress }));
   return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.10.0', import.meta.url), { type: 'module' });
+    const worker = new Worker(new URL('./source-spectrum-worker.js?v=1.11.0', import.meta.url), { type: 'module' });
     const left = channels[0];
     const right = channels[1] || null;
     worker.onmessage = event => {

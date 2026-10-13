@@ -1,4 +1,4 @@
-import { renderMultiComponentSourceSpectrumNoise, renderSourceDerivedLayers } from './multi-component-spectrum-noise.js?v=1.10.0';
+import { renderMultiComponentSourceSpectrumNoise, renderSourceDerivedLayers } from './multi-component-spectrum-noise.js?v=1.11.0';
 
 self.onmessage = event => {
   const data = event.data || {};

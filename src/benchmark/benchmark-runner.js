@@ -17,7 +17,7 @@ export function createBenchmarkConfig({ preset = 'standard', sampleRate = 48000,
 }
 
 export function runBenchmark(config, { onProgress = () => {}, onComplete = () => {}, onError = () => {} } = {}) {
-  const worker = new Worker(new URL('./benchmark-worker.js?v=1.10.0', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./benchmark-worker.js?v=1.11.0', import.meta.url), { type: 'module' });
   let settled = false;
   let rejectPromise;
   const promise = new Promise((resolve, reject) => {
